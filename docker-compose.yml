@@ -39,7 +39,17 @@ services:
       - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - backend
+    networks:
+      - default
+      - proxy-net
 
 volumes:
   mongo-data:
   uploads-data:
+
+networks:
+  default:
+  # Gemeinsames Netzwerk für einen zukünftigen Reverse Proxy (z.B. Caddy).
+  # Einmalig auf dem Server anlegen: docker network create proxy-net
+  proxy-net:
+    external: true
