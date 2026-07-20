@@ -2,7 +2,7 @@ const axios = require('axios');
 const Delivery = require('../models/Delivery');
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
-const USER_AGENT = 'GasDispo/1.0 (gasdispo@localhost)';
+const USER_AGENT = 'Orderdesk/1.0 (orderdesk@localhost)';
 
 // Simple in-memory cache to respect Nominatim rate limits (1 req/sec)
 const geocodeCache = new Map();

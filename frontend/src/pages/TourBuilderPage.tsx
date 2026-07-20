@@ -467,7 +467,7 @@ export default function TourBuilderPage() {
       if (tour.fahrerId && typeof tour.fahrerId === 'object') setSelectedDriver(tour.fahrerId as Driver);
       if (tour.fahrzeugId && typeof tour.fahrzeugId === 'object') setSelectedVehicle(tour.fahrzeugId as Vehicle);
       const dels = (tour.lieferscheine || [])
-        .map(item => (typeof item.delivery === 'object' ? item.delivery as Delivery : null))
+        .map((item: any) => (typeof item.delivery === 'object' ? item.delivery as Delivery : null))
         .filter(Boolean) as Delivery[];
       setSelectedDeliveries(dels);
       return tour;

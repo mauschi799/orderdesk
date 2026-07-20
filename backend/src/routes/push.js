@@ -82,7 +82,7 @@ router.patch('/preferences', auth, async (req, res) => {
 router.post('/test', auth, async (req, res) => {
   try {
     await sendPushNotification({
-      title: 'GasDispo Test',
+      title: 'Orderdesk Test',
       body: 'Push-Notifications funktionieren! 🎉',
       tag: 'test',
       userId: req.user._id,

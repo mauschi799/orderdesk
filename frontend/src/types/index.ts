@@ -165,7 +165,6 @@ export interface Delivery {
   importiert: boolean;
   importQuelle: 'selectline' | 'manuell';
   erstelltVon?: User | string;
-  erstelltAm?: string;
   gesamtgewichtNetto?: number;
   gesamtMenge?: number;
   createdAt: string;

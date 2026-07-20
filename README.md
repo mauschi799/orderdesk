@@ -1,4 +1,4 @@
-# GasDispo – Gas-Lieferschein Disposition
+# Orderdesk – Gas-Lieferschein Disposition
 
 > Vollständige MERN-Applikation zur Verwaltung und Disposition von Gas-Lieferscheinen mit Kanban-Workflow und SelectLine-Integration.
 
@@ -65,7 +65,7 @@ http://localhost:3000
 ## Architektur
 
 ```
-gasdispo/
+orderdesk/
 ├── backend/
 │   └── src/
 │       ├── models/          # Mongoose-Modelle (User, Delivery, AuditLog)
@@ -256,7 +256,7 @@ docker-compose logs -f
 ```env
 NODE_ENV=production
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/gasdispo
+MONGODB_URI=mongodb://localhost:27017/orderdesk
 JWT_SECRET=min-32-zeichen-langer-geheimer-schluessel
 JWT_EXPIRES_IN=8h
 AUTO_LOGOUT_MINUTES=60

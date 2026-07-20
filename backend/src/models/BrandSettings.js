@@ -5,7 +5,7 @@ const brandSettingsSchema = new mongoose.Schema({
   _singleton: { type: Boolean, default: true, unique: true },
 
   // Identity
-  appName: { type: String, default: 'GasDispo', trim: true, maxlength: 60 },
+  appName: { type: String, default: 'Orderdesk', trim: true, maxlength: 60 },
   appSubtitle: { type: String, default: 'Lieferschein Disposition', trim: true, maxlength: 100 },
   companyName: { type: String, default: '', trim: true, maxlength: 100 },
 

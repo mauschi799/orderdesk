@@ -15,30 +15,30 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: (() => {
     try {
-      const stored = localStorage.getItem('gasdispo_user');
+      const stored = localStorage.getItem('orderdesk_user');
       return stored ? JSON.parse(stored) : null;
     } catch { return null; }
   })(),
-  token: localStorage.getItem('gasdispo_token'),
+  token: localStorage.getItem('orderdesk_token'),
   permissions: (() => {
     try {
-      const stored = localStorage.getItem('gasdispo_permissions');
+      const stored = localStorage.getItem('orderdesk_permissions');
       return stored ? JSON.parse(stored) : [];
     } catch { return []; }
   })(),
-  isAuthenticated: !!localStorage.getItem('gasdispo_token'),
+  isAuthenticated: !!localStorage.getItem('orderdesk_token'),
 
   setAuth: (user, token, permissions) => {
-    localStorage.setItem('gasdispo_token', token);
-    localStorage.setItem('gasdispo_user', JSON.stringify(user));
-    localStorage.setItem('gasdispo_permissions', JSON.stringify(permissions));
+    localStorage.setItem('orderdesk_token', token);
+    localStorage.setItem('orderdesk_user', JSON.stringify(user));
+    localStorage.setItem('orderdesk_permissions', JSON.stringify(permissions));
     set({ user, token, permissions, isAuthenticated: true });
   },
 
   clearAuth: () => {
-    localStorage.removeItem('gasdispo_token');
-    localStorage.removeItem('gasdispo_user');
-    localStorage.removeItem('gasdispo_permissions');
+    localStorage.removeItem('orderdesk_token');
+    localStorage.removeItem('orderdesk_user');
+    localStorage.removeItem('orderdesk_permissions');
     set({ user: null, token: null, permissions: [], isAuthenticated: false });
   },
 

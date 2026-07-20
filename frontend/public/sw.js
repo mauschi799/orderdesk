@@ -1,4 +1,4 @@
-// GasDispo Service Worker – Push Notifications
+// Orderdesk Service Worker – Push Notifications
 const APP_VERSION = 'v1';
 
 self.addEventListener('install', (event) => {
@@ -16,7 +16,7 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data.json();
   } catch {
-    data = { title: 'GasDispo', body: event.data.text() };
+    data = { title: 'Orderdesk', body: event.data.text() };
   }
 
   const { title, body, icon = '/favicon.ico', tag, data: extraData } = data;
@@ -26,7 +26,7 @@ self.addEventListener('push', (event) => {
       body,
       icon,
       badge: '/favicon.ico',
-      tag: tag || 'gasdispo',
+      tag: tag || 'orderdesk',
       data: extraData || {},
       requireInteraction: false,
       vibrate: [200, 100, 200],

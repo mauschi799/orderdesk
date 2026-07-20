@@ -63,7 +63,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gasdispo')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/orderdesk')
   .then(async () => {
     console.log('✅ MongoDB verbunden');
     app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));

@@ -188,7 +188,7 @@ export default function MapPage() {
             </span>
           </div>
           <a href="/lieferscheine/${delivery._id}"
-            onclick="event.preventDefault();window.__gasDispoNavigate('${delivery._id}');"
+            onclick="event.preventDefault();window.__orderdeskNavigate('${delivery._id}');"
             style="display:block;text-align:center;padding:5px 12px;background:#f48a1a;color:white;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;">
             Öffnen →
           </a>
@@ -261,8 +261,8 @@ export default function MapPage() {
   }, [deliveries]);
 
   useEffect(() => {
-    (window as any).__gasDispoNavigate = (id: string) => navigate(`/lieferscheine/${id}`);
-    return () => { delete (window as any).__gasDispoNavigate; };
+    (window as any).__orderdeskNavigate = (id: string) => navigate(`/lieferscheine/${id}`);
+    return () => { delete (window as any).__orderdeskNavigate; };
   }, [navigate]);
 
   const withCoords = (deliveries as Delivery[]).filter(d => d.kunde?.adresse?.lat != null);

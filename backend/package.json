@@ -1,5 +1,5 @@
 {
-  "name": "gasdispo-backend",
+  "name": "orderdesk-backend",
   "version": "1.0.0",
   "description": "Gas Lieferschein Disposition Backend",
   "main": "src/server.js",

@@ -5,7 +5,7 @@ const AuditLog = require('../models/AuditLog');
 const Tour = require('../models/Tour');
 
 const clear = async () => {
-  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gasdispo');
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/orderdesk');
   console.log('Verbunden mit MongoDB');
 
   const d = await Delivery.deleteMany({});

@@ -7,7 +7,7 @@ CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
 echo ""
 echo -e "${BOLD}╔══════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║      GasDispo – Installations-Setup      ║${NC}"
+echo -e "${BOLD}║      Orderdesk – Installations-Setup      ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -104,7 +104,7 @@ docker compose up -d
 echo ""
 echo -n "  Warte auf MongoDB"
 for i in {1..30}; do
-  docker exec gasdispo-mongo mongosh --quiet --eval "db.adminCommand('ping')" &>/dev/null && break
+  docker exec orderdesk-mongo mongosh --quiet --eval "db.adminCommand('ping')" &>/dev/null && break
   echo -n "."
   sleep 2
 done
@@ -114,7 +114,7 @@ echo -e "${GREEN}✓ MongoDB bereit${NC}"
 # ── VAPID-Schlüssel generieren ────────────────────────────────────────────────
 echo ""
 echo -n "  VAPID-Schlüssel werden generiert..."
-VAPID_JSON=$(docker exec gasdispo-backend node -e \
+VAPID_JSON=$(docker exec orderdesk-backend node -e \
   "try{const wp=require('web-push');const k=wp.generateVAPIDKeys();console.log(JSON.stringify(k));}catch(e){console.log('{}');}" \
   2>/dev/null || echo '{}')
 
@@ -137,9 +137,9 @@ read -rp "  Benutzername [admin]: " ADMIN_USER;  ADMIN_USER=${ADMIN_USER:-admin}
 read -rp "  Anzeigename [Administrator]: " ADMIN_NAME; ADMIN_NAME=${ADMIN_NAME:-Administrator}
 read -rsp "  Passwort: " ADMIN_PASS; echo ""
 
-docker exec gasdispo-backend node -e "
+docker exec orderdesk-backend node -e "
 const mongoose = require('mongoose');
-mongoose.connect('mongodb://mongodb:27017/gasdispo').then(async () => {
+mongoose.connect('mongodb://mongodb:27017/orderdesk').then(async () => {
   const bcrypt = require('bcryptjs');
   const User   = require('./src/models/User');
   const exists = await User.findOne({ username: '${ADMIN_USER}' });

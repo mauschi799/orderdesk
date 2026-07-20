@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo "── GasDispo Update ─────────────────────────────────────────"
+echo "── Orderdesk Update ─────────────────────────────────────────"
 git pull
 docker compose up -d --build
 echo "✓ Update abgeschlossen"

@@ -45,7 +45,7 @@ export interface BrandSettings {
 }
 
 const DEFAULTS: BrandSettings = {
-  appName: 'GasDispo',
+  appName: 'Orderdesk',
   appSubtitle: 'Lieferschein Disposition',
   companyName: '',
   colors: {
@@ -93,7 +93,7 @@ const applyToDom = (settings: BrandSettings) => {
   root.style.setProperty('--brand-sidebar-active',c.sidebarActive);
 
   // Page title
-  document.title = settings.appName || 'GasDispo';
+  document.title = settings.appName || 'Orderdesk';
 
   // Favicon
   if (settings.favicon) {

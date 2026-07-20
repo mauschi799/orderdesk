@@ -283,13 +283,13 @@ function DokumenteModal({ driver, onClose }: { driver: Driver; onClose: () => vo
   }
 
   function openDoc(doc: VehicleDocument) {
-    const token = localStorage.getItem('gasdispo_token');
+    const token = localStorage.getItem('orderdesk_token');
     fetch(driverApi.dokumentUrl(doc.filename), { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.blob()).then(blob => window.open(URL.createObjectURL(blob), '_blank'));
   }
 
   function downloadDoc(doc: VehicleDocument) {
-    const token = localStorage.getItem('gasdispo_token');
+    const token = localStorage.getItem('orderdesk_token');
     fetch(driverApi.dokumentUrl(doc.filename), { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.blob()).then(blob => {
         const a = document.createElement('a');

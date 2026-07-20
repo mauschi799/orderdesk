@@ -3,18 +3,18 @@ version: '3.8'
 services:
   mongodb:
     image: mongo:7
-    container_name: gasdispo-mongo
+    container_name: orderdesk-mongo
     restart: unless-stopped
     volumes:
       - mongo-data:/data/db
     environment:
-      MONGO_INITDB_DATABASE: gasdispo
+      MONGO_INITDB_DATABASE: orderdesk
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: gasdispo-backend
+    container_name: orderdesk-backend
     restart: unless-stopped
     ports:
       - "5000:5000"
@@ -27,13 +27,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGODB_URI: mongodb://mongodb:27017/gasdispo
+      MONGODB_URI: mongodb://mongodb:27017/orderdesk
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: gasdispo-frontend
+    container_name: orderdesk-frontend
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-3000}:80"

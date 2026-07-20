@@ -17,7 +17,7 @@ const p5  = (n) => pos('G-5KG',  'Propangas 5 kg Flasche',  n, 5.8, 10.8);
 const pb  = (n) => pos('B-11KG', 'Butangas 11 kg Flasche',  n, 7.5, 18.5);
 
 const seed = async () => {
-  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gasdispo');
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/orderdesk');
   console.log('Verbunden mit MongoDB');
 
   await User.deleteMany({});

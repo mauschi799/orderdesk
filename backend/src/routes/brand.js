@@ -29,7 +29,7 @@ router.get('/public', async (req, res) => {
   } catch (err) {
     // Fallback to defaults on error
     res.json({
-      appName: 'GasDispo',
+      appName: 'Orderdesk',
       appSubtitle: 'Lieferschein Disposition',
       colors: { primary: '#f48a1a', primaryDark: '#c0560c', sidebar: '#0f172a' },
     });

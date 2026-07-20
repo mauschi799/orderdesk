@@ -292,7 +292,7 @@ function DokumenteModal({ vehicle, onClose }: { vehicle: Vehicle; onClose: () =>
   }
 
   function openDoc(doc: VehicleDocument) {
-    const token = localStorage.getItem('gasdispo_token');
+    const token = localStorage.getItem('orderdesk_token');
     const url = vehicleApi.dokumentUrl(doc.filename);
     // Fetch the file with auth header and open in new tab
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
@@ -304,7 +304,7 @@ function DokumenteModal({ vehicle, onClose }: { vehicle: Vehicle; onClose: () =>
   }
 
   function downloadDoc(doc: VehicleDocument) {
-    const token = localStorage.getItem('gasdispo_token');
+    const token = localStorage.getItem('orderdesk_token');
     const url = vehicleApi.dokumentUrl(doc.filename);
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.blob())

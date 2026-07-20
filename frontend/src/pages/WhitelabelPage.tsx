@@ -430,7 +430,7 @@ export default function WhitelabelPage() {
                       value={local.appName}
                       onChange={e => setField('appName', e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                      placeholder="GasDispo"
+                      placeholder="Orderdesk"
                       maxLength={60}
                     />
                   </div>
