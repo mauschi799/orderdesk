@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { cn } from '../utils';
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const pinInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const setAuth = useAuthStore(s => s.setAuth);
   const settings = useBrandStore(s => s.settings);
@@ -30,18 +31,32 @@ export default function LoginPage() {
     }
   });
 
+  const submitIfComplete = (value: string) => {
+    if (value.length === PIN_LENGTH && username) {
+      loginMutation.mutate({ username, pin: value });
+    }
+  };
+
+  // Physische Tastatur / mobile Zifferntastatur (verstecktes Input-Feld)
+  const handlePinChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, PIN_LENGTH);
+    setPin(digits);
+    setError('');
+    submitIfComplete(digits);
+  };
+
+  // On-screen Ziffernblock (Touch)
   const handlePinInput = (digit: string) => {
     if (pin.length >= PIN_LENGTH) return;
     const newPin = pin + digit;
     setPin(newPin);
     setError('');
-    if (newPin.length === PIN_LENGTH && username) {
-      loginMutation.mutate({ username, pin: newPin });
-    }
+    pinInputRef.current?.focus();
+    submitIfComplete(newPin);
   };
 
-  const handleDelete = () => setPin(p => p.slice(0, -1));
-  const handleClear = () => setPin('');
+  const handleDelete = () => { setPin(p => p.slice(0, -1)); pinInputRef.current?.focus(); };
+  const handleClear = () => { setPin(''); pinInputRef.current?.focus(); };
 
   const numKeys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 
@@ -75,7 +90,7 @@ export default function LoginPage() {
               type="text"
               value={username}
               onChange={e => { setUsername(e.target.value.toLowerCase()); setError(''); }}
-              onKeyDown={e => e.key === 'Enter' && document.getElementById('pin-1')?.focus()}
+              onKeyDown={e => e.key === 'Enter' && pinInputRef.current?.focus()}
               placeholder="Benutzername eingeben"
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
               autoComplete="username"
@@ -85,16 +100,33 @@ export default function LoginPage() {
 
           {/* PIN display */}
           <div className="mb-5">
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+            <label htmlFor="pin-input" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
               PIN
             </label>
-            <div className="flex justify-center gap-3">
-              {Array.from({ length: PIN_LENGTH }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`pin-dot transition-all duration-150 ${i < pin.length ? 'filled scale-110' : ''}`}
-                />
-              ))}
+            <div className="relative">
+              <div className="flex justify-center gap-3">
+                {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`pin-dot transition-all duration-150 ${i < pin.length ? 'filled scale-110' : ''}`}
+                  />
+                ))}
+              </div>
+              {/* Unsichtbares Eingabefeld: nimmt physische Tastatur & mobile Zifferntastatur entgegen */}
+              <input
+                id="pin-input"
+                ref={pinInputRef}
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
+                maxLength={PIN_LENGTH}
+                value={pin}
+                onChange={e => handlePinChange(e.target.value)}
+                disabled={loginMutation.isPending}
+                aria-label="PIN"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-default"
+              />
             </div>
           </div>
 

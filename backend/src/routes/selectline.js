@@ -7,11 +7,12 @@ const Delivery = require('../models/Delivery');
 const { auth, requireRole } = require('../middleware/auth');
 const { createAuditLog } = require('../services/auditService');
 const { notifyImportDone } = require('../services/pushService');
+const { queueForGeocoding } = require('../services/geocodeService');
 const sl = require('../services/selectlineService');
 
 const router = express.Router();
 
-// Upsert helper
+// Upsert helper – returns { outcome, id }
 const upsertDelivery = async (mapped, userId = null) => {
   const existing = await Delivery.findOne({
     $or: [{ lieferscheinNr: mapped.lieferscheinNr }, { selectlineId: mapped.selectlineId }],
@@ -19,23 +20,28 @@ const upsertDelivery = async (mapped, userId = null) => {
   if (existing) {
     // Always refresh address, positions, dates, and notiz from SelectLine.
     // Preserve workflow fields (status, kanbanSpalte, lager) set by dispatchers.
+    // Update address sub-fields individually to preserve existing lat/lng coords.
+    const addr = mapped.kunde?.adresse || {};
     await Delivery.findByIdAndUpdate(existing._id, {
-      'kunde.adresse':  mapped.kunde?.adresse,
-      'kunde.name':     mapped.kunde?.name,
-      'kunde.name2':    mapped.kunde?.name2,
-      positionen:       mapped.positionen,
-      lieferdatum:      mapped.lieferdatum,
-      erstelltAm:       mapped.erstelltAm,
-      notiz:            mapped.notiz,
-      auftragNr:        mapped.auftragNr,
+      'kunde.adresse.strasse': addr.strasse,
+      'kunde.adresse.plz':     addr.plz,
+      'kunde.adresse.ort':     addr.ort,
+      'kunde.adresse.land':    addr.land,
+      'kunde.name':            mapped.kunde?.name,
+      'kunde.name2':           mapped.kunde?.name2,
+      positionen:              mapped.positionen,
+      lieferdatum:             mapped.lieferdatum,
+      erstelltAm:              mapped.erstelltAm,
+      notiz:                   mapped.notiz,
+      auftragNr:               mapped.auftragNr,
     });
-    return 'updated';
+    return { outcome: 'updated', id: existing._id };
   }
-  await Delivery.create({ ...mapped, ...(userId && { erstelltVon: userId }) });
-  return 'imported';
+  const doc = await Delivery.create({ ...mapped, ...(userId && { erstelltVon: userId }) });
+  return { outcome: 'imported', id: doc._id };
 };
 
-// Full pipeline for one document
+// Full pipeline for one document – returns { outcome, id }
 const importSingleDocument = async (documentKey, userId) => {
   // Fetch detail; fall back gracefully if endpoint not supported
   let docDetail = null;
@@ -130,20 +136,23 @@ router.post('/import', auth, requireRole('administrator', 'disponent'), async (r
     details: { beschreibung: `SelectLine Import ${dateFrom||''}–${dateTo||''}` }, req });
 
   const results = { imported: 0, updated: 0, skipped: 0, errors: [] };
+  const importedIds = [];
   try {
     const documents = await sl.getDeliveryNotes({ dateFrom, dateTo });
     for (const doc of documents) {
       const key = doc.Number || doc.DocumentKey || doc.DeliveryDocumentNumber || doc.Id;
       try {
-        const outcome = await importSingleDocument(key, req.user._id);
+        const { outcome, id } = await importSingleDocument(key, req.user._id);
         results[outcome]++;
+        importedIds.push(id);
       } catch (itemErr) {
         results.errors.push({ key, error: itemErr.message });
       }
     }
     results.dauer = Date.now() - started;
-    await createAuditLog({ benutzer: req.user._id, benutzerName: req.user.name, aktion: 'import_abgeschlossen',
-      details: { beschreibung: `Import: ${results.imported} neu, ${results.updated} upd, ${results.skipped} skip` }, req });
+    await createAuditLog({ benutzer: req.user._id, benutzerName: req.user.name, aktion: 'import_manuell',
+      details: { beschreibung: `Manueller Sync: ${results.imported} neu, ${results.updated} aktualisiert, ${results.skipped} übersprungen` }, req });
+    if (importedIds.length > 0) queueForGeocoding(importedIds);
     if (results.imported + results.updated > 0) notifyImportDone(results).catch(() => {});
     res.json({ message: 'Import abgeschlossen', ...results });
   } catch (err) {
@@ -156,7 +165,8 @@ router.post('/import-single', auth, requireRole('administrator', 'disponent'), a
   const { documentKey } = req.body;
   if (!documentKey) return res.status(400).json({ message: 'documentKey fehlt' });
   try {
-    const outcome = await importSingleDocument(documentKey, req.user._id);
+    const { outcome, id } = await importSingleDocument(documentKey, req.user._id);
+    queueForGeocoding([id]);
     res.json({ message: 'Fertig', outcome, documentKey });
   } catch (err) {
     res.status(502).json({ message: err.response?.data?.Message || err.message });
@@ -168,14 +178,17 @@ router.post('/import-manual', auth, requireRole('administrator', 'disponent'), a
   try {
     const items = Array.isArray(req.body.data) ? req.body.data : [req.body.data];
     const results = { imported: 0, updated: 0, skipped: 0, errors: [] };
+    const ids = [];
     for (const item of items) {
       try {
         const mapped = await sl.mapDocument(item);
         mapped.positionen = (item.Positions || item.Positionen || item.Artikel || []).map(p => sl.mapPosition(p));
-        const outcome = await upsertDelivery(mapped, req.user._id);
+        const { outcome, id } = await upsertDelivery(mapped, req.user._id);
         results[outcome]++;
+        ids.push(id);
       } catch (e) { results.errors.push({ error: e.message }); }
     }
+    if (ids.length > 0) queueForGeocoding(ids);
     res.json({ message: 'Manueller Import abgeschlossen', ...results });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

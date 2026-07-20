@@ -18,7 +18,7 @@ const geocodeRoutes   = require('./routes/geocode');
 const cronRoutes      = require('./routes/cron');
 const brandRoutes     = require('./routes/brand');
 const lagerRoutes     = require('./routes/lager');
-const debugRoutes     = require('./routes/debug');
+const debugRoutes     = process.env.NODE_ENV !== 'production' ? require('./routes/debug') : null;
 const vehicleRoutes   = require('./routes/vehicles');
 const driverRoutes    = require('./routes/drivers');
 const adminRoutes     = require('./routes/admin');
@@ -26,6 +26,9 @@ const adminRoutes     = require('./routes/admin');
 const { initCronFromDB } = require('./services/cronService');
 
 const app = express();
+
+// Läuft hinter nginx (docker-compose) – für korrekte req.ip (Rate-Limit, Audit-Log)
+app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
@@ -47,7 +50,7 @@ app.use('/api/geocode',    geocodeRoutes);
 app.use('/api/cron',       cronRoutes);
 app.use('/api/brand',      brandRoutes);
 app.use('/api/lager',      lagerRoutes);
-app.use('/api/debug',      debugRoutes);
+if (debugRoutes) app.use('/api/debug', debugRoutes);
 app.use('/api/fahrzeuge',  vehicleRoutes);
 app.use('/api/fahrer',    driverRoutes);
 app.use('/api/admin',     adminRoutes);

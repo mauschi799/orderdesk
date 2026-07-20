@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
@@ -7,8 +8,16 @@ const { createAuditLog } = require('../services/auditService');
 
 const router = express.Router();
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Zu viele Anmeldeversuche — bitte 15 Minuten warten' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // POST /api/auth/login
-router.post('/login', [
+router.post('/login', loginLimiter, [
   body('username').trim().notEmpty().withMessage('Benutzername erforderlich'),
   body('pin').isLength({ min: 4 }).withMessage('PIN muss mindestens 4 Zeichen haben')
 ], async (req, res) => {

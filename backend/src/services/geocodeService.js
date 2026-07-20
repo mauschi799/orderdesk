@@ -1,4 +1,5 @@
 const axios = require('axios');
+const Delivery = require('../models/Delivery');
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
 const USER_AGENT = 'GasDispo/1.0 (gasdispo@localhost)';
@@ -87,4 +88,46 @@ const geocodeDeliveries = async (deliveries) => {
   return results;
 };
 
-module.exports = { geocodeAddress, geocodeKunde, geocodeDeliveries };
+// ── Background geocoding queue ────────────────────────────────────────────────
+const bgQueue = new Set();
+let bgProcessing = false;
+
+const processQueue = async () => {
+  if (bgProcessing) return;
+  bgProcessing = true;
+  try {
+    while (bgQueue.size > 0) {
+      const [id] = bgQueue;
+      bgQueue.delete(id);
+      try {
+        const delivery = await Delivery.findById(id).select('kunde.adresse');
+        if (!delivery) continue;
+        // Skip if already geocoded
+        if (delivery.kunde?.adresse?.lat && delivery.kunde?.adresse?.lng) continue;
+        const coords = await geocodeKunde(delivery.kunde?.adresse);
+        if (coords) {
+          await Delivery.findByIdAndUpdate(id, {
+            'kunde.adresse.lat': coords.lat,
+            'kunde.adresse.lng': coords.lng,
+          });
+          console.log(`[Geocoding] ✓ ${id} → ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+        }
+      } catch (err) {
+        console.error(`[Geocoding] Fehler bei ${id}:`, err.message);
+      }
+    }
+  } finally {
+    bgProcessing = false;
+  }
+};
+
+/**
+ * Add delivery IDs to the background geocoding queue.
+ * Kicks off processing automatically; fire-and-forget.
+ */
+const queueForGeocoding = (deliveryIds) => {
+  deliveryIds.forEach(id => bgQueue.add(String(id)));
+  processQueue().catch(err => console.error('[Geocoding] Queue-Fehler:', err.message));
+};
+
+module.exports = { geocodeAddress, geocodeKunde, geocodeDeliveries, queueForGeocoding };

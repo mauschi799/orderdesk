@@ -2,25 +2,32 @@ const cron = require('node-cron');
 const Delivery = require('../models/Delivery');
 const ImportSchedule = require('../models/ImportSchedule');
 const { notifyImportDone } = require('./pushService');
+const { queueForGeocoding } = require('./geocodeService');
+const { createAuditLog } = require('./auditService');
 const sl = require('./selectlineService');
 
 let activeJob = null;
 
+// Returns { outcome, id }
 const upsertDelivery = async (mapped) => {
   const existing = await Delivery.findOne({
     $or: [{ lieferscheinNr: mapped.lieferscheinNr }, { selectlineId: mapped.selectlineId }],
   });
   if (existing) {
+    const addr = mapped.kunde?.adresse || {};
     const update = {
-      // Always refresh data from SelectLine
-      'kunde.adresse': mapped.kunde?.adresse,
-      'kunde.name':    mapped.kunde?.name,
-      'kunde.name2':   mapped.kunde?.name2,
-      positionen:      mapped.positionen,
-      lieferdatum:     mapped.lieferdatum,
-      erstelltAm:      mapped.erstelltAm,
-      notiz:           mapped.notiz,
-      auftragNr:       mapped.auftragNr,
+      // Update address sub-fields individually to preserve existing lat/lng coords
+      'kunde.adresse.strasse': addr.strasse,
+      'kunde.adresse.plz':     addr.plz,
+      'kunde.adresse.ort':     addr.ort,
+      'kunde.adresse.land':    addr.land,
+      'kunde.name':            mapped.kunde?.name,
+      'kunde.name2':           mapped.kunde?.name2,
+      positionen:              mapped.positionen,
+      lieferdatum:             mapped.lieferdatum,
+      erstelltAm:              mapped.erstelltAm,
+      notiz:                   mapped.notiz,
+      auftragNr:               mapped.auftragNr,
     };
     // Mark as abgeschlossen if SelectLine says it's transferred
     if (mapped.status === 'abgeschlossen' && existing.status !== 'abgeschlossen') {
@@ -28,16 +35,17 @@ const upsertDelivery = async (mapped) => {
       update.kanbanSpalte = 'abgeschlossen';
     }
     await Delivery.findByIdAndUpdate(existing._id, update);
-    return 'updated';
+    return { outcome: 'updated', id: existing._id };
   }
-  await Delivery.create(mapped);
-  return 'imported';
+  const doc = await Delivery.create(mapped);
+  return { outcome: 'imported', id: doc._id };
 };
 
 const runImport = async (schedule) => {
   const tage = schedule?.tageRueckblick || 7;
   const dateFrom = new Date(Date.now() - tage * 86400000).toISOString().split('T')[0];
   const results = { imported: 0, updated: 0, skipped: 0, errors: [], dauer: 0 };
+  const importedIds = [];
   const started = Date.now();
 
   try {
@@ -82,8 +90,9 @@ const runImport = async (schedule) => {
         mapped.importiert = true;
         mapped.importiertAm = new Date();
         mapped.importQuelle = 'selectline';
-        const outcome = await upsertDelivery(mapped);
+        const { outcome, id } = await upsertDelivery(mapped);
         results[outcome]++;
+        importedIds.push(id);
       } catch (itemErr) {
         const status = itemErr.response?.status;
         const body = itemErr.response?.data?.Message || itemErr.response?.data?.message || '';
@@ -101,6 +110,7 @@ const runImport = async (schedule) => {
   }
 
   results.dauer = Date.now() - started;
+  if (importedIds.length > 0) queueForGeocoding(importedIds);
   return results;
 };
 
@@ -119,6 +129,13 @@ const startCronJob = (cronExpression, schedule) => {
       { upsert: true }
     );
     console.log(`[Cron] ${result.imported} neu, ${result.updated} upd, ${result.skipped} skip, ${result.errors.length} err`);
+    await createAuditLog({
+      benutzerName: 'System (Auto-Import)',
+      aktion: 'import_auto',
+      details: {
+        beschreibung: `Auto-Sync: ${result.imported} neu, ${result.updated} aktualisiert, ${result.skipped} übersprungen`
+      }
+    }).catch(() => {});
     if (result.imported + result.updated > 0) await notifyImportDone(result).catch(() => {});
   }, { timezone: 'Europe/Berlin' });
 

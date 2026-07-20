@@ -1,6 +1,7 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Flame, LayoutDashboard, Kanban, FileText, Download, Users, ScrollText, Settings, LogOut, MapPin, Truck, RefreshCw, Paintbrush, ClipboardList, BarChart3, Settings2, Terminal, Car, UserCheck } from 'lucide-react';
+import { Flame, LayoutDashboard, Kanban, FileText, Download, Users, ScrollText, Settings, LogOut, MapPin, Truck, RefreshCw, Paintbrush, ClipboardList, BarChart3, Settings2, Terminal, Car, UserCheck, Menu, X } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useBrandStore } from '../../store/brandStore';
 import { authApi } from '../../api';
@@ -9,8 +10,13 @@ import { ROLE_LABELS, cn } from '../../utils';
 export default function Layout() {
   const { user, clearAuth, hasRole } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const { settings } = useBrandStore();
   const { colors, logos, appName, appSubtitle, features } = settings;
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Drawer bei Seitenwechsel automatisch schließen (Tablet/Handy)
+  useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
@@ -58,7 +64,19 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#f8f9fb' }}>
-      <aside className="w-60 flex-shrink-0 flex flex-col" style={{ background: colors.sidebar }}>
+      {/* Mobile/Tablet Backdrop */}
+      {mobileNavOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={cn(
+        'w-72 lg:w-60 flex-shrink-0 flex flex-col fixed lg:static inset-y-0 left-0 z-50 transition-transform duration-200 ease-out safe-top safe-bottom',
+        mobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      )} style={{ background: colors.sidebar }}>
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           {logos.sidebar ? (
@@ -74,6 +92,14 @@ export default function Layout() {
               </div>
             </>
           )}
+          <button
+            onClick={() => setMobileNavOpen(false)}
+            className="ml-auto p-1.5 rounded-lg lg:hidden"
+            style={{ color: colors.sidebarText }}
+            aria-label="Menü schließen"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Nav */}
@@ -119,7 +145,32 @@ export default function Layout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto"><Outlet /></main>
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Mobile/Tablet Top-Bar */}
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200 safe-top flex-shrink-0">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            className="p-2 -ml-2 rounded-lg hover:bg-slate-100 text-slate-600"
+            aria-label="Menü öffnen"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {logos.sidebar ? (
+              <img src={logos.sidebar} alt={appName} className="h-6 w-auto object-contain max-w-[120px]" />
+            ) : (
+              <>
+                <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: colors.primary }}>
+                  <Flame className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="font-bold text-sm text-slate-800 truncate">{appName}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <main className="flex-1 overflow-auto safe-bottom safe-left safe-right"><Outlet /></main>
+      </div>
     </div>
   );
 }

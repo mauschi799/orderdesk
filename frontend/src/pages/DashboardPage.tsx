@@ -3,7 +3,7 @@ import { dashboardApi } from '../api';
 import { PageHeader, Card } from '../components/ui';
 import { STATUS_LABELS, LAGER_LABELS, AKTION_LABELS, formatDateTime, STATUS_DOT_COLORS } from '../utils';
 import {
-  Package, Truck, CheckCircle, Clock, AlertCircle, TrendingUp, Activity
+  Package, Truck, CheckCircle, Clock, AlertCircle, TrendingUp, Activity, RefreshCw
 } from 'lucide-react';
 import { cn } from '../utils';
 
@@ -136,26 +136,40 @@ export default function DashboardPage() {
             Letzte Aktivitäten
           </h3>
           <div className="space-y-1">
-            {stats?.recentActivity?.map((log: any) => (
-              <div key={log._id} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
-                <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-bold text-slate-500">
-                    {(log.benutzerName || log.benutzer?.name || 'S')?.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm text-slate-700">
-                    <span className="font-medium">{log.benutzerName || log.benutzer?.name || 'System'}</span>
-                    {' '}
-                    <span className="text-slate-500">{AKTION_LABELS[log.aktion] || log.aktion}</span>
-                    {log.lieferscheinNr && (
-                      <span className="font-mono text-xs text-orange-600 ml-1">{log.lieferscheinNr}</span>
+            {stats?.recentActivity?.map((log: any) => {
+              const isSyncEvent = ['import_manuell', 'import_auto', 'import_gestartet', 'import_abgeschlossen'].includes(log.aktion);
+              const isAutoSync = log.aktion === 'import_auto';
+              return (
+                <div key={log._id} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+                  <div className={cn(
+                    'w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0',
+                    isSyncEvent ? 'bg-blue-50' : 'bg-slate-100'
+                  )}>
+                    {isSyncEvent ? (
+                      <RefreshCw className={cn('w-3.5 h-3.5', isAutoSync ? 'text-blue-500' : 'text-indigo-500')} />
+                    ) : (
+                      <span className="text-xs font-bold text-slate-500">
+                        {(log.benutzerName || log.benutzer?.name || 'S')?.charAt(0).toUpperCase()}
+                      </span>
                     )}
-                  </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-slate-700">
+                      <span className="font-medium">{log.benutzerName || log.benutzer?.name || 'System'}</span>
+                      {' '}
+                      <span className="text-slate-500">{AKTION_LABELS[log.aktion] || log.aktion}</span>
+                      {log.lieferscheinNr && (
+                        <span className="font-mono text-xs text-orange-600 ml-1">{log.lieferscheinNr}</span>
+                      )}
+                    </span>
+                    {isSyncEvent && log.details?.beschreibung && (
+                      <div className="text-xs text-slate-400 mt-0.5">{log.details.beschreibung}</div>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-400 flex-shrink-0">{formatDateTime(log.timestamp)}</span>
                 </div>
-                <span className="text-xs text-slate-400 flex-shrink-0">{formatDateTime(log.timestamp)}</span>
-              </div>
-            ))}
+              );
+            })}
             {!isLoading && !stats?.recentActivity?.length && (
               <p className="text-sm text-slate-400 py-4 text-center">Keine Aktivitäten</p>
             )}

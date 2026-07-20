@@ -4,7 +4,7 @@ const auditSchema = new mongoose.Schema({
   benutzer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false  // null for system-generated entries (e.g. cron imports)
   },
   benutzerName: String, // denormalized for history
   aktion: {
@@ -16,6 +16,7 @@ const auditSchema = new mongoose.Schema({
       'status_geaendert', 'lager_zugewiesen', 'gedruckt',
       'auslieferung_gestartet', 'auslieferung_abgeschlossen',
       'import_gestartet', 'import_abgeschlossen',
+      'import_manuell', 'import_auto',
       'benutzer_erstellt', 'benutzer_geaendert', 'benutzer_geloescht',
       'kanban_verschoben'
     ]

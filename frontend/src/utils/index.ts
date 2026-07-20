@@ -152,6 +152,8 @@ export const AKTION_LABELS: Record<string, string> = {
   auslieferung_abgeschlossen: 'Auslieferung abgeschlossen',
   import_gestartet: 'Import gestartet',
   import_abgeschlossen: 'Import abgeschlossen',
+  import_manuell: 'Manueller Sync',
+  import_auto: 'Automatischer Sync',
   benutzer_erstellt: 'Benutzer erstellt',
   benutzer_geaendert: 'Benutzer geändert',
   benutzer_geloescht: 'Benutzer gelöscht',

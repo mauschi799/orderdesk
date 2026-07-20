@@ -10,7 +10,12 @@ router.get('/deliveries', auth, async (req, res) => {
   try {
     const { status, lager, lieferdatum } = req.query;
     const filter = {};
-    if (status) filter.status = status;
+    // Default: hide finished/cancelled deliveries; override only when explicitly filtered
+    if (status) {
+      filter.status = status;
+    } else {
+      filter.status = { $nin: ['abgeschlossen', 'storniert'] };
+    }
     if (lager) filter.lager = lager;
     if (lieferdatum) {
       const d = new Date(lieferdatum);
