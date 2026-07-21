@@ -79,6 +79,12 @@ export const selectlineApi = {
   import: (params: any) => api.post('/selectline/import', params).then(r => r.data),
   importManual: (data: any[]) => api.post('/selectline/import-manual', { data }).then(r => r.data),
   testConnection: () => api.get('/selectline/test').then(r => r.data),
+  // Ruft den original in SelectLine erzeugten PDF-Ausdruck des Lieferscheins ab
+  printPdf: (documentKey: string, masterName?: string) =>
+    api.post(`/selectline/documents/${encodeURIComponent(documentKey)}/print-pdf`,
+      masterName ? { masterName } : {},
+      { responseType: 'blob' }
+    ).then(r => r.data as Blob),
 };
 
 export default api;

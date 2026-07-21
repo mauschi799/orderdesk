@@ -5,7 +5,7 @@ import {
   ArrowLeft, Printer, Package, Truck, CheckCircle,
   Edit, MapPin, Phone, Calendar, Hash, Weight, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
-import { deliveriesApi } from '../api';
+import { deliveriesApi, selectlineApi } from '../api';
 import { Delivery } from '../types';
 import {
   PageHeader, Card, StatusBadge, LagerBadge, Button, Modal
@@ -38,6 +38,7 @@ export default function DeliveryDetailPage() {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedLager, setSelectedLager] = useState('');
   const [notiz, setNotiz] = useState('');
+  const [printError, setPrintError] = useState('');
 
   type SortKey = 'artikelnummer' | 'beschreibung' | 'menge';
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -68,12 +69,29 @@ export default function DeliveryDetailPage() {
     }
   });
 
+  // SelectLine-Importe drucken den Original-PDF-Ausdruck aus SelectLine;
+  // manuell angelegte Lieferscheine haben kein SelectLine-Dokument und
+  // fallen auf den einfachen Browser-Ausdruck der Seite zurück.
   const printMutation = useMutation({
-    mutationFn: () => deliveriesApi.markPrinted(id!),
+    mutationFn: async () => {
+      const documentKey = delivery?.selectlineId || delivery?.lieferscheinNr;
+      if (delivery?.importQuelle === 'selectline' && documentKey) {
+        const blob = await selectlineApi.printPdf(documentKey);
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        await deliveriesApi.markPrinted(id!);
+        window.print();
+      }
+    },
     onSuccess: () => {
+      setPrintError('');
       queryClient.invalidateQueries({ queryKey: ['delivery', id] });
       queryClient.invalidateQueries({ queryKey: ['kanban'] });
-      window.print();
+    },
+    onError: (err: any) => {
+      setPrintError(err.response?.data?.message || 'Drucken fehlgeschlagen');
     }
   });
 
@@ -163,6 +181,11 @@ export default function DeliveryDetailPage() {
           </Button>
         </div>
       </div>
+      {printError && (
+        <div className="mx-6 mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 no-print">
+          {printError}
+        </div>
+      )}
 
       {/* Content */}
       <div className="p-6 grid grid-cols-3 gap-4 max-w-6xl">
