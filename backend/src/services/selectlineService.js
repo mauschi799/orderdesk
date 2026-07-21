@@ -443,52 +443,57 @@ const getArticleStocks = async (articleNumber) => {
 
 /**
  * Print a document as PDF.
- * Tries multiple endpoint variants since path params aren't supported.
+ *
+ * Confirmed via live test against the SelectLine Mobile API:
+ *   - Endpoint:  POST /Documents/{prefixedKey}/PrintPdf  (HTTP 201, application/pdf)
+ *   - /Documents/PrintPdf and /Documents/Print don't support POST at all (405).
+ *   - The bare numeric documentKey (e.g. "343143") is rejected with
+ *     "Belegtyp 3 wird nicht unterstützt" — SelectLine requires the document
+ *     TYPE prefix embedded in the number itself (e.g. "L343143" for
+ *     Lieferschein). The app stores/receives numbers without that prefix
+ *     (doc.Number), so it's added here before calling out.
  */
 const printPdf = async (documentKey, masterName = '!BLATT1') => {
   const { token, tokenType, baseUrl } = await ensureToken();
   const axios = require('axios');
-  const https = require('https');
   const httpsAgent = _getHttpsAgent();
 
-  const bodies = [
-    { Number: documentKey,       MasterName: masterName },
-    { DocumentNumber: documentKey, MasterName: masterName },
-    { filter: `Number EQ '${documentKey}'`, MasterName: masterName },
-  ];
-  const endpoints = [
-    '/Documents/PrintPdf',
-    '/Documents/Print',
-    `/Documents/${encodeURIComponent(documentKey)}/PrintPdf`,
-    `/Documents/${encodeURIComponent(documentKey)}/Print`,
-  ];
+  // If the key already starts with a letter, assume it's already prefixed
+  // and use it as-is; otherwise try the known document-type prefixes.
+  const candidates = /^[A-Za-z]/.test(documentKey)
+    ? [documentKey]
+    : ['L', 'QL', 'LS', 'LF'].map(prefix => `${prefix}${documentKey}`);
 
-  for (const endpoint of endpoints) {
-    for (const body of bodies) {
-      try {
-        const res = await axios.post(`${baseUrl}${endpoint}`, body, {
-          headers: {
-            Authorization: `${tokenType} ${token}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/pdf, application/json, */*',
-          },
-          httpsAgent,
-          responseType: 'arraybuffer',
-          timeout: 30_000,
-        });
-        const ct = res.headers['content-type'] || '';
-        if (ct.includes('pdf') || res.data?.byteLength > 100) {
-          console.log(`[SL] ✓ Print via ${endpoint}`);
-          return { buffer: Buffer.from(res.data), contentType: ct || 'application/pdf' };
-        }
-      } catch (err) {
-        if (err.response?.status === 404 || err.response?.status === 405) continue;
-        // Log but continue trying
-        console.warn(`[SL] Print ${endpoint}: HTTP ${err.response?.status || err.message}`);
+  let lastErr;
+  for (const key of candidates) {
+    const endpoint = `/Documents/${encodeURIComponent(key)}/PrintPdf`;
+    try {
+      const res = await axios.post(`${baseUrl}${endpoint}`, { Number: key, MasterName: masterName }, {
+        headers: {
+          Authorization: `${tokenType} ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/pdf, application/json, */*',
+        },
+        httpsAgent,
+        responseType: 'arraybuffer',
+        timeout: 30_000,
+      });
+      const ct = res.headers['content-type'] || '';
+      if (ct.includes('pdf') || res.data?.byteLength > 100) {
+        console.log(`[SL] ✓ Print via ${endpoint}`);
+        return { buffer: Buffer.from(res.data), contentType: ct || 'application/pdf' };
       }
+    } catch (err) {
+      lastErr = err;
+      let msg = err.message;
+      if (err.response?.data) {
+        try { msg = JSON.parse(Buffer.from(err.response.data).toString('utf8')).Message || msg; } catch { /* ignore */ }
+      }
+      console.warn(`[SL] Print ${endpoint}: HTTP ${err.response?.status || ''} ${msg}`);
     }
   }
-  throw new Error(`Kein funktionierender Print-Endpoint für ${documentKey} gefunden`);
+  throw new Error(`Kein funktionierender Print-Endpoint für ${documentKey} gefunden`
+    + (lastErr ? ` (letzter Fehler: ${lastErr.response?.status || ''} ${lastErr.message})` : ''));
 };
 
 // ── Transform helpers ──────────────────────────────────────────────────────────
