@@ -313,13 +313,14 @@ router.get('/articles/:articleNumber/stocks', auth, requireRole('administrator')
 
 // Je Depot verwendet SelectLine eine eigene Druckvorlage (unterschiedlicher
 // Ausgabedrucker, gleicher Beleginhalt). "frei" hat kein eigenes Depot-Formular
-// und nutzt daher dieselbe Vorlage wie Bengel.
+// und nutzt daher dieselbe Vorlage wie Bengel — ebenso der Fallback, falls dem
+// Lieferschein noch gar kein Lager zugewiesen ist.
 const LAGER_MASTER_NAMES = {
   trier:  'MG_LIEF_GG_1011121',
   bengel: 'MG_LIEF_BG_20250427',
   frei:   'MG_LIEF_BG_20250427',
 };
-const DEFAULT_MASTER_NAME = '!BLATT1';
+const DEFAULT_MASTER_NAME = LAGER_MASTER_NAMES.bengel;
 
 // POST /api/selectline/documents/:key/print-pdf
 router.post('/documents/:key/print-pdf', auth, requireRole('administrator', 'disponent', 'lagerist'), async (req, res) => {
