@@ -311,15 +311,29 @@ router.get('/articles/:articleNumber/stocks', auth, requireRole('administrator')
   catch (err) { res.status(502).json({ message: err.message }); }
 });
 
+// Je Depot verwendet SelectLine eine eigene Druckvorlage (unterschiedlicher
+// Ausgabedrucker, gleicher Beleginhalt). "frei" hat kein eigenes Depot-Formular
+// und nutzt daher dieselbe Vorlage wie Bengel.
+const LAGER_MASTER_NAMES = {
+  trier:  'MG_LIEF_GG_1011121',
+  bengel: 'MG_LIEF_BG_20250427',
+  frei:   'MG_LIEF_BG_20250427',
+};
+const DEFAULT_MASTER_NAME = '!BLATT1';
+
 // POST /api/selectline/documents/:key/print-pdf
 router.post('/documents/:key/print-pdf', auth, requireRole('administrator', 'disponent', 'lagerist'), async (req, res) => {
   const { key } = req.params;
-  const { masterName = '!BLATT1' } = req.body;
   try {
+    // Lieferschein zuerst laden, um die passende Depot-Druckvorlage zu bestimmen
+    const delivery = await Delivery.findOne({ $or: [{ lieferscheinNr: key }, { selectlineId: key }] });
+    const masterName = req.body.masterName
+      || (delivery?.lager && LAGER_MASTER_NAMES[delivery.lager])
+      || DEFAULT_MASTER_NAME;
+
     const { buffer, contentType } = await sl.printPdf(key, masterName);
 
     // Mark delivery printed
-    const delivery = await Delivery.findOne({ $or: [{ lieferscheinNr: key }, { selectlineId: key }] });
     if (delivery) {
       delivery.druckStatus = { gedruckt: true, gedrucktAm: new Date(), gedrucktVon: req.user._id,
         druckAnzahl: (delivery.druckStatus?.druckAnzahl || 0) + 1 };
