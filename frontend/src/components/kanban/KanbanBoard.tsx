@@ -5,7 +5,7 @@ import {
   useSensor, useSensors, DragStartEvent, DragEndEvent, DragOverEvent,
   useDroppable,
 } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Printer, GripVertical } from 'lucide-react';
 import { deliveriesApi } from '../../api';
@@ -95,7 +95,7 @@ function KanbanColumn({
 }: { col: typeof KANBAN_COLUMNS[number]; deliveries: Delivery[]; isOver: boolean }) {
   const { setNodeRef } = useDroppable({ id: col.id });
   return (
-    <div className="flex flex-col" style={{ minWidth: 270, flex: '0 0 270px' }}>
+    <div className="flex flex-col flex-shrink-0 w-[270px] 2xl:w-[480px]">
       {/* Header */}
       <div className={cn(
         'flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 mb-2 transition-all',
@@ -116,8 +116,8 @@ function KanbanColumn({
           isOver ? 'bg-slate-50 ring-2 ring-dashed ring-slate-300' : '',
         )}
       >
-        <SortableContext items={deliveries.map(d => d._id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2">
+        <SortableContext items={deliveries.map(d => d._id)} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-1 2xl:grid-cols-2 gap-2 items-start">
             {deliveries.map(d => <SortableCard key={d._id} delivery={d} />)}
           </div>
         </SortableContext>
