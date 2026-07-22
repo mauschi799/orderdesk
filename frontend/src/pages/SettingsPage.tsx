@@ -8,7 +8,7 @@ import { PageHeader, Card, Button } from '../components/ui';
 import { ROLE_LABELS, formatDateTime, cn } from '../utils';
 
 export default function SettingsPage() {
-  const { user } = useAuthStore();
+  const { user, hasRole } = useAuthStore();
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -199,7 +199,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Push Notifications */}
-        <PushNotificationPanel />
+        {hasRole('administrator') && <PushNotificationPanel />}
 
         {/* App Info */}
         <Card className="p-5">

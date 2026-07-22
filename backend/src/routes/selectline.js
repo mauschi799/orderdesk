@@ -59,7 +59,7 @@ const importSingleDocument = async (documentKey, userId) => {
 };
 
 // GET /api/selectline/test
-router.get('/test', auth, requireRole('administrator', 'disponent'), async (req, res) => {
+router.get('/test', auth, requireRole('administrator', 'disponent', 'lagerist'), async (req, res) => {
   try {
     const result = await sl.testConnection();
     res.json({ connected: true, ...result });
@@ -129,7 +129,7 @@ router.get('/diagnose', auth, requireRole('administrator'), async (req, res) => 
 });
 
 // POST /api/selectline/import
-router.post('/import', auth, requireRole('administrator', 'disponent'), async (req, res) => {
+router.post('/import', auth, requireRole('administrator', 'disponent', 'lagerist'), async (req, res) => {
   const { dateFrom, dateTo } = req.body;
   const started = Date.now();
   await createAuditLog({ benutzer: req.user._id, benutzerName: req.user.name, aktion: 'import_gestartet',
@@ -161,7 +161,7 @@ router.post('/import', auth, requireRole('administrator', 'disponent'), async (r
 });
 
 // POST /api/selectline/import-single
-router.post('/import-single', auth, requireRole('administrator', 'disponent'), async (req, res) => {
+router.post('/import-single', auth, requireRole('administrator', 'disponent', 'lagerist'), async (req, res) => {
   const { documentKey } = req.body;
   if (!documentKey) return res.status(400).json({ message: 'documentKey fehlt' });
   try {
@@ -174,7 +174,7 @@ router.post('/import-single', auth, requireRole('administrator', 'disponent'), a
 });
 
 // POST /api/selectline/import-manual
-router.post('/import-manual', auth, requireRole('administrator', 'disponent'), async (req, res) => {
+router.post('/import-manual', auth, requireRole('administrator', 'disponent', 'lagerist'), async (req, res) => {
   try {
     const items = Array.isArray(req.body.data) ? req.body.data : [req.body.data];
     const results = { imported: 0, updated: 0, skipped: 0, errors: [] };

@@ -7,7 +7,7 @@ const { runImport, startCronJob } = require('../services/cronService');
 const router = express.Router();
 
 // GET /api/cron/schedule - get current schedule config
-router.get('/schedule', auth, requireRole('administrator', 'disponent'), async (req, res) => {
+router.get('/schedule', auth, requireRole('administrator'), async (req, res) => {
   try {
     let schedule = await ImportSchedule.findOne();
     if (!schedule) {
@@ -64,7 +64,7 @@ router.put('/schedule', auth, requireRole('administrator'), async (req, res) => 
 });
 
 // POST /api/cron/run-now - trigger import immediately
-router.post('/run-now', auth, requireRole('administrator', 'disponent'), async (req, res) => {
+router.post('/run-now', auth, requireRole('administrator'), async (req, res) => {
   try {
     const schedule = await ImportSchedule.findOne();
     const result = await runImport(schedule);
@@ -87,7 +87,7 @@ router.post('/run-now', auth, requireRole('administrator', 'disponent'), async (
 });
 
 // GET /api/cron/history - get run history
-router.get('/history', auth, requireRole('administrator', 'disponent'), async (req, res) => {
+router.get('/history', auth, requireRole('administrator'), async (req, res) => {
   try {
     const schedule = await ImportSchedule.findOne().select('historie letzterLauf letzterLaufErgebnis');
     res.json(schedule || { historie: [] });
@@ -97,7 +97,7 @@ router.get('/history', auth, requireRole('administrator', 'disponent'), async (r
 });
 
 // Preset cron expressions for the UI
-router.get('/presets', auth, (req, res) => {
+router.get('/presets', auth, requireRole('administrator'), (req, res) => {
   res.json([
     { label: 'Täglich 06:00', expression: '0 6 * * *' },
     { label: 'Täglich 08:00', expression: '0 8 * * *' },

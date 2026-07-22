@@ -35,9 +35,15 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 function LageristRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, hasRole } = useAuthStore();
+  const { isAuthenticated, hasRole, user } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!hasRole('lagerist', 'administrator')) return <Navigate to="/" replace />;
+  // Zugriff auch für Benutzer mit individuell erteilter "Bestände einsehen"-
+  // Berechtigung (lagerLesen.aktiv), nicht nur für die Rolle "lagerist" —
+  // muss mit der canLesen-Logik in Layout.tsx übereinstimmen, sonst sieht
+  // der Nutzer den Sidebar-Link, wird beim Klick aber wieder rausgeworfen.
+  if (!hasRole('lagerist', 'administrator') && !user?.lagerLesen?.aktiv) {
+    return <Navigate to="/" replace />;
+  }
   return <>{children}</>;
 }
 function DefaultRedirect() {
@@ -65,7 +71,7 @@ export default function App() {
           {features?.showTourPlanning !== false && <Route path="touren/neu" element={<TourBuilderPage />} />}
           {features?.showTourPlanning !== false && <Route path="touren/:id/bearbeiten" element={<TourBuilderPage />} />}
           <Route path="import" element={<ImportPage />} />
-          {features?.showAutoImport !== false && <Route path="auto-import" element={<AutoImportPage />} />}
+          {features?.showAutoImport !== false && <Route path="auto-import" element={<AdminRoute><AutoImportPage /></AdminRoute>} />}
           {features?.showAuditLog !== false && <Route path="audit" element={<AuditPage />} />}
           <Route path="lager/melden" element={<PrivateRoute><LagerMeldenPage /></PrivateRoute>} />
           <Route path="lager/uebersicht" element={<LageristRoute><LagerUebersichtPage /></LageristRoute>} />

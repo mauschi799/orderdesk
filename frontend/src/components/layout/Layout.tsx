@@ -49,8 +49,8 @@ export default function Layout() {
     !isFilialen && {
       label: 'Verwaltung',
       items: [
-        ...(hasRole('administrator','disponent') ? [{ to: '/import', label: 'Import', icon: Download }] : []),
-        ...(features?.showAutoImport !== false && hasRole('administrator','disponent') ? [{ to: '/auto-import', label: 'Auto-Import', icon: RefreshCw }] : []),
+        ...(hasRole('administrator','disponent','lagerist') ? [{ to: '/import', label: 'Import', icon: Download }] : []),
+        ...(features?.showAutoImport !== false && hasRole('administrator') ? [{ to: '/auto-import', label: 'Auto-Import', icon: RefreshCw }] : []),
         ...(features?.showAuditLog !== false && hasRole('administrator','disponent') ? [{ to: '/audit', label: 'Audit-Log', icon: ScrollText }] : []),
         ...(hasRole('administrator') ? [{ to: '/benutzer', label: 'Benutzer', icon: Users }] : []),
         ...(hasRole('administrator') ? [{ to: '/whitelabel', label: 'Whitelabel', icon: Paintbrush }] : []),
