@@ -131,7 +131,7 @@ export default function LagerProduktverwaltungPage() {
             <div className="p-10 text-center">
               <Package className="w-8 h-8 text-slate-200 mx-auto mb-3" />
               <p className="text-sm text-slate-400 mb-4">Noch keine Produkte angelegt</p>
-              <Button size="sm" onClick={openCreate}>
+              <Button size="sm" onClick={() => openCreate()}>
                 <Plus className="w-3.5 h-3.5" />
                 Erstes Produkt anlegen
               </Button>
