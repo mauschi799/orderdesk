@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit, Trash2, Package, GripVertical, Store } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, GripVertical, Store, Minus } from 'lucide-react';
 import { lagerApi } from '../api';
 import { LagerProdukt } from '../types';
 import { Card, Button, PageHeader, Modal } from '../components/ui';
@@ -9,6 +9,7 @@ import { cn } from '../utils';
 const EINHEITEN = ['Stk', 'Kg', 'Liter', 'Flasche', 'Palette', 't'];
 
 interface ProduktForm {
+  typ: 'produkt' | 'trenner';
   artikelnummer: string;
   beschreibung: string;
   einheit: string;
@@ -17,7 +18,8 @@ interface ProduktForm {
   verfuegbarIn: string[];
 }
 
-const emptyForm = (): ProduktForm => ({
+const emptyForm = (typ: 'produkt' | 'trenner' = 'produkt'): ProduktForm => ({
+  typ,
   artikelnummer: '',
   beschreibung: '',
   einheit: 'Stk',
@@ -58,15 +60,16 @@ export default function LagerProduktverwaltungPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['lager-produkte'] }); setDeleteConfirm(null); },
   });
 
-  const openCreate = () => {
+  const openCreate = (typ: 'produkt' | 'trenner' = 'produkt') => {
     setEditingId(null);
-    setForm(emptyForm());
+    setForm(emptyForm(typ));
     setShowModal(true);
   };
 
   const openEdit = (p: LagerProdukt) => {
     setEditingId(p._id);
     setForm({
+      typ: p.typ || 'produkt',
       artikelnummer: p.artikelnummer,
       beschreibung: p.beschreibung,
       einheit: p.einheit,
@@ -103,12 +106,18 @@ export default function LagerProduktverwaltungPage() {
     <div>
       <PageHeader
         title="Produkte verwalten"
-        subtitle={`${produkte.length} Produkte konfiguriert`}
+        subtitle={`${produkte.filter(p => p.typ !== 'trenner').length} Produkte konfiguriert`}
         actions={
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="w-3.5 h-3.5" />
-            Neues Produkt
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => openCreate('trenner')}>
+              <Minus className="w-3.5 h-3.5" />
+              Neuer Trenner
+            </Button>
+            <Button size="sm" onClick={() => openCreate('produkt')}>
+              <Plus className="w-3.5 h-3.5" />
+              Neues Produkt
+            </Button>
+          </div>
         }
       />
 
@@ -142,7 +151,40 @@ export default function LagerProduktverwaltungPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {produkte.map(p => (
+                  {produkte.map(p => p.typ === 'trenner' ? (
+                    <tr key={p._id} className="bg-slate-50/80 hover:bg-slate-100 transition-colors">
+                      <td className="px-2 py-2.5 text-slate-300">
+                        <GripVertical className="w-4 h-4" />
+                      </td>
+                      <td colSpan={4} className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <Minus className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            {p.beschreibung}
+                          </span>
+                          {!p.aktiv && (
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">Inaktiv</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-1 justify-end">
+                          <button
+                            onClick={() => openEdit(p)}
+                            className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm(p._id)}
+                            className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
                     <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-2 py-3 text-slate-200">
                         <GripVertical className="w-4 h-4" />
@@ -207,43 +249,72 @@ export default function LagerProduktverwaltungPage() {
       <Modal
         isOpen={showModal}
         onClose={closeModal}
-        title={editingId ? 'Produkt bearbeiten' : 'Neues Produkt'}
+        title={editingId ? (form.typ === 'trenner' ? 'Trenner bearbeiten' : 'Produkt bearbeiten') : (form.typ === 'trenner' ? 'Neuer Trenner' : 'Neues Produkt')}
         size="md"
       >
         <div className="p-6 space-y-4">
-          {/* Beschreibung */}
+          {/* Typ-Umschalter (nur beim Neuanlegen relevant, beim Bearbeiten fix) */}
+          {!editingId && (
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: 'produkt', label: 'Produkt', icon: Package },
+                { value: 'trenner', label: 'Trenner', icon: Minus },
+              ] as const).map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, typ: value }))}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all',
+                    form.typ === value
+                      ? 'border-orange-400 bg-orange-50 text-orange-700'
+                      : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                  )}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Beschreibung / Trenner-Text */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Bezeichnung *</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              {form.typ === 'trenner' ? 'Trenner-Text *' : 'Bezeichnung *'}
+            </label>
             <input
               value={form.beschreibung}
               onChange={e => setForm(f => ({ ...f, beschreibung: e.target.value }))}
-              placeholder="z.B. Propangas 11 kg"
+              placeholder={form.typ === 'trenner' ? 'z.B. Kühlware' : 'z.B. Propangas 11 kg'}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
             />
           </div>
 
-          {/* Artikelnummer + Einheit nebeneinander */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Artikelnummer</label>
-              <input
-                value={form.artikelnummer}
-                onChange={e => setForm(f => ({ ...f, artikelnummer: e.target.value }))}
-                placeholder="optional"
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 font-mono"
-              />
+          {/* Artikelnummer + Einheit nebeneinander (nur für echte Produkte relevant) */}
+          {form.typ === 'produkt' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Artikelnummer</label>
+                <input
+                  value={form.artikelnummer}
+                  onChange={e => setForm(f => ({ ...f, artikelnummer: e.target.value }))}
+                  placeholder="optional"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Einheit</label>
+                <select
+                  value={form.einheit}
+                  onChange={e => setForm(f => ({ ...f, einheit: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                >
+                  {EINHEITEN.map(e => <option key={e}>{e}</option>)}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Einheit</label>
-              <select
-                value={form.einheit}
-                onChange={e => setForm(f => ({ ...f, einheit: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-              >
-                {EINHEITEN.map(e => <option key={e}>{e}</option>)}
-              </select>
-            </div>
-          </div>
+          )}
 
           {/* Sortierung */}
           <div>
@@ -297,8 +368,8 @@ export default function LagerProduktverwaltungPage() {
           {/* Aktiv */}
           <div className="flex items-center justify-between py-1">
             <div>
-              <div className="text-sm font-medium text-slate-700">Produkt aktiv</div>
-              <div className="text-xs text-slate-400">Inaktive Produkte erscheinen nicht in der Meldemaske</div>
+              <div className="text-sm font-medium text-slate-700">{form.typ === 'trenner' ? 'Trenner aktiv' : 'Produkt aktiv'}</div>
+              <div className="text-xs text-slate-400">{form.typ === 'trenner' ? 'Inaktive Trenner erscheinen nicht in der Meldemaske' : 'Inaktive Produkte erscheinen nicht in der Meldemaske'}</div>
             </div>
             <button
               type="button"

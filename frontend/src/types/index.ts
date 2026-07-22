@@ -84,6 +84,7 @@ export interface LagerPosition {
 
 export interface LagerProdukt {
   _id: string;
+  typ?: 'produkt' | 'trenner';
   artikelnummer: string;
   beschreibung: string;
   einheit: string;

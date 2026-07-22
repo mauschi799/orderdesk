@@ -20,6 +20,7 @@ export default function LagerMeldenPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [selectedFiliale, setSelectedFiliale] = useState<string>('');
+  const [customFiliale, setCustomFiliale] = useState('');
   const [mengen, setMengen] = useState<Record<string, number>>({});
   const [freiPositionen, setFreiPositionen] = useState<LagerPosition[]>([emptyPosition()]);
   const [notiz, setNotiz] = useState('');
@@ -50,7 +51,7 @@ export default function LagerMeldenPage() {
     queryFn: lagerApi.meine,
   });
 
-  const hatProdukte = produkte.length > 0;
+  const hatProdukte = produkte.some(p => p.typ !== 'trenner');
 
   // Mengen zurücksetzen wenn Filiale oder Produktliste wechselt
   useEffect(() => {
@@ -62,7 +63,7 @@ export default function LagerMeldenPage() {
   const buildPositionen = (): LagerPosition[] => {
     if (hatProdukte) {
       return produkte
-        .filter(p => (mengen[p._id] ?? 0) > 0)
+        .filter(p => p.typ !== 'trenner' && (mengen[p._id] ?? 0) > 0)
         .map(p => ({
           artikelnummer: p.artikelnummer,
           beschreibung: p.beschreibung,
@@ -99,8 +100,12 @@ export default function LagerMeldenPage() {
 
   // Für filialen-Rolle: immer ihre eigene Filiale
   const isFilialen = user?.role === 'filialen';
+  // Administratoren sind immer uneingeschränkt (siehe Backend getMeldenFilialen) —
+  // sie dürfen daher auch eine noch unbekannte/neue Filiale frei eingeben, statt
+  // nur aus der Liste bereits bekannter Filialen zu wählen.
+  const isAdmin = user?.role === 'administrator';
   const activeFilialeLabel = isFilialen ? (user.filiale ?? '') : selectedFiliale;
-  const needsFilialeSelector = !isFilialen && meldeFilialen.length > 1;
+  const needsFilialeSelector = !isFilialen && (meldeFilialen.length > 1 || isAdmin);
   const canSubmit = !!activeFilialeLabel && buildPositionen().length > 0;
 
   const letzteM = meineM[0] as LagerMeldung | undefined;
@@ -137,11 +142,31 @@ export default function LagerMeldenPage() {
                 </button>
               ))}
             </div>
+
+            {/* Freie Filial-Eingabe für Admins (z.B. neue, noch unbekannte Filiale) */}
+            {isAdmin && (
+              <div className={cn('flex items-center gap-2', meldeFilialen.length > 0 && 'mt-3 pt-3 border-t border-slate-100')}>
+                <input
+                  value={customFiliale}
+                  onChange={e => setCustomFiliale(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && customFiliale.trim()) setSelectedFiliale(customFiliale.trim()); }}
+                  placeholder="Andere Filiale eingeben..."
+                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+                <button
+                  onClick={() => { if (customFiliale.trim()) setSelectedFiliale(customFiliale.trim()); }}
+                  disabled={!customFiliale.trim()}
+                  className="px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:border-slate-300 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Verwenden
+                </button>
+              </div>
+            )}
           </Card>
         )}
 
         {/* Keine Filiale verfügbar */}
-        {!isFilialen && meldeFilialen.length === 0 && (
+        {!isFilialen && !isAdmin && meldeFilialen.length === 0 && (
           <Card className="p-6 text-center">
             <Store className="w-8 h-8 text-slate-200 mx-auto mb-3" />
             <p className="text-sm text-slate-400">Keine Filialen für diesen Account hinterlegt.</p>
@@ -184,7 +209,13 @@ export default function LagerMeldenPage() {
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Bezeichnung</span>
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Menge</span>
                 </div>
-                {produkte.map(p => (
+                {produkte.map(p => p.typ === 'trenner' ? (
+                  <div key={p._id} className="pt-3 pb-1.5 first:pt-0">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1.5">
+                      {p.beschreibung}
+                    </div>
+                  </div>
+                ) : (
                   <div key={p._id} className="grid grid-cols-[auto_1fr_96px] gap-3 items-center py-1.5 border-b border-slate-50 last:border-0">
                     <span className="font-mono text-xs text-slate-400 w-16 truncate">{p.artikelnummer || '–'}</span>
                     <div>
@@ -207,7 +238,7 @@ export default function LagerMeldenPage() {
                   </div>
                 ))}
                 <p className="text-xs text-slate-400 pt-1">
-                  Nur Positionen mit Menge &gt; 0 werden übermittelt ({buildPositionen().length} von {produkte.length})
+                  Nur Positionen mit Menge &gt; 0 werden übermittelt ({buildPositionen().length} von {produkte.filter(p => p.typ !== 'trenner').length})
                 </p>
               </div>
             )}

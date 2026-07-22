@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const lagerProduktSchema = new mongoose.Schema({
+  // 'trenner' = reine Überschrift/Trenner in der Meldemaske, kein echtes Produkt —
+  // beschreibung dient dann als Trenner-Text, artikelnummer/einheit bleiben leer
+  // und werden beim Melden ignoriert.
+  typ:           { type: String, enum: ['produkt', 'trenner'], default: 'produkt' },
   artikelnummer: { type: String, trim: true, default: '' },
   beschreibung:  { type: String, required: true, trim: true },
   einheit:       { type: String, default: 'Stk' },
