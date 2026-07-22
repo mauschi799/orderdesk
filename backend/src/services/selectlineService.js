@@ -459,10 +459,12 @@ const printPdf = async (documentKey, masterName = '!BLATT1') => {
   const httpsAgent = _getHttpsAgent();
 
   // If the key already starts with a letter, assume it's already prefixed
-  // and use it as-is; otherwise try the known document-type prefixes.
+  // and use it as-is. Otherwise prepend "L" — wir verarbeiten ausschließlich
+  // Lieferscheine, QL/LS/LF werden bewusst nicht mehr abgefragt (unnötige
+  // Requests, und führten nur zu 404s / zusätzlicher Wartezeit).
   const candidates = /^[A-Za-z]/.test(documentKey)
     ? [documentKey]
-    : ['L', 'QL', 'LS', 'LF'].map(prefix => `${prefix}${documentKey}`);
+    : [`L${documentKey}`];
 
   let lastErr;
   for (const key of candidates) {
@@ -537,10 +539,11 @@ const mapDocument = async (doc) => {
   let deliveryName  = null; // Name aus der Lieferadresse (LastName || Company)
   let deliveryName2 = null; // Name2 aus der Lieferadresse (FirstName || Department)
 
-  // 1) /Documents/L{number}/DeliveryAddresses — ab SelectLine 25.4 verfügbar
+  // 1) /Documents/L{number}/DeliveryAddresses — ab SelectLine 25.4 verfügbar.
+  // Nur Lieferscheine (Präfix "L") — QL/LS/LF werden nicht mehr abgefragt.
   const docNumber = doc.Number || doc.DocumentKey || String(doc.Id ?? '');
   if (docNumber) {
-    const prefixes = ['L', 'QL', 'LS', 'LF'];
+    const prefixes = ['L'];
     for (const prefix of prefixes) {
       try {
         const data = await slGet(`/Documents/${prefix}${docNumber}/DeliveryAddresses`, { take: 1 });
