@@ -16,16 +16,6 @@ import {
 } from '../utils';
 import { useAuthStore } from '../store/authStore';
 
-const STATUS_TRANSITIONS: Record<string, string[]> = {
-  neu: ['nicht_zugewiesen', 'zugewiesen'],
-  nicht_zugewiesen: ['zugewiesen', 'storniert'],
-  zugewiesen: ['gedruckt', 'nicht_zugewiesen'],
-  gedruckt: ['in_auslieferung', 'zugewiesen'],
-  in_auslieferung: ['abgeschlossen'],
-  abgeschlossen: [],
-  storniert: [],
-};
-
 const LAGER_OPTIONS = ['frei', 'bengel', 'trier'];
 
 export default function DeliveryDetailPage() {
@@ -123,8 +113,8 @@ export default function DeliveryDetailPage() {
   const gesamtgewicht = calcGesamtgewicht(delivery.positionen);
   const nettoGG       = calcNettoGG(delivery.positionen);
   const gesamtMenge   = delivery.positionen.reduce((s, p) => s + p.menge, 0);
-  const nextStatuses = STATUS_TRANSITIONS[delivery.status] || [];
-  const canEditStatus = hasRole('administrator', 'disponent', 'lagerist') && nextStatuses.length > 0;
+  const nextStatuses = Object.keys(STATUS_LABELS).filter(s => s !== delivery.status);
+  const canEditStatus = hasRole('administrator', 'disponent', 'lagerist');
 
   return (
     <div>
