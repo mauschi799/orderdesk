@@ -171,6 +171,7 @@ export default function MapPage() {
 
       const color = STATUS_MAP_COLORS[delivery.status] || '#64748b';
       const gkg = calcGesamtgewicht(delivery.positionen);
+      const ungenau = !!delivery.kunde.adresse?.ungenau;
 
       const marker = L.circleMarker([lat, lng], {
         radius: 10,
@@ -179,6 +180,7 @@ export default function MapPage() {
         weight: 2,
         opacity: 1,
         fillOpacity: 0.9,
+        dashArray: ungenau ? '4,3' : undefined,
       });
 
       marker.bindPopup(`
@@ -187,6 +189,7 @@ export default function MapPage() {
           <div style="font-family:monospace;font-size:11px;color:#64748b;margin-bottom:6px;">${delivery.lieferscheinNr}</div>
           <div style="font-size:11px;color:#475569;margin-bottom:2px;">📅 ${formatDate(delivery.lieferdatum)}</div>
           ${delivery.kunde.adresse?.strasse ? `<div style="font-size:11px;color:#475569;margin-bottom:6px;">📍 ${delivery.kunde.adresse.strasse}, ${delivery.kunde.adresse.plz} ${delivery.kunde.adresse.ort}</div>` : ''}
+          ${ungenau ? `<div style="font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:4px 6px;margin-bottom:8px;">⚠️ Position ungenau – Straße nicht gefunden, nur Ortsmittelpunkt</div>` : ''}
           <div style="font-size:11px;color:#475569;margin-bottom:8px;">📦 ${delivery.positionen.length} Pos · ⚖ ${formatWeight(gkg)}</div>
           <div style="margin-bottom:8px;">
             <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:500;background:${color}20;color:${color};border:1px solid ${color}50;">
@@ -230,13 +233,14 @@ export default function MapPage() {
       const delivery = (deliveries as Delivery[]).find(d => d._id === deliveryId);
       const color = delivery ? (STATUS_MAP_COLORS[delivery.status] || '#64748b') : '#64748b';
       const isSelected = selectedForTour.includes(deliveryId);
+      const dashArray = delivery?.kunde?.adresse?.ungenau ? '4,3' : undefined;
 
       if (isSelected) {
-        marker.setStyle({ radius: 13, fillColor: color, color: '#f48a1a', weight: 3.5, fillOpacity: 1 });
+        marker.setStyle({ radius: 13, fillColor: color, color: '#f48a1a', weight: 3.5, fillOpacity: 1, dashArray });
       } else if (planMode) {
-        marker.setStyle({ radius: 10, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.45 });
+        marker.setStyle({ radius: 10, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.45, dashArray });
       } else {
-        marker.setStyle({ radius: 10, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 });
+        marker.setStyle({ radius: 10, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9, dashArray });
       }
     });
   }, [selectedForTour, planMode, deliveries]);
@@ -412,6 +416,10 @@ export default function MapPage() {
                   <span className="text-[10px] text-slate-600">{STATUS_LABELS[status] || status}</span>
                 </div>
               ))}
+              <div className="flex items-center gap-2 pt-1 mt-1 border-t border-slate-100">
+                <div className="w-3 h-3 rounded-full border-2 border-dashed border-slate-400 shadow-sm bg-white" />
+                <span className="text-[10px] text-slate-500">Position ungenau (Ortsmittelpunkt)</span>
+              </div>
             </div>
           </div>
 

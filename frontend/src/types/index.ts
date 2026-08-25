@@ -132,6 +132,8 @@ export interface Adresse {
   land?: string;
   lat?: number;
   lng?: number;
+  // true = nur grober Ortsmittelpunkt, Straße konnte nicht lokalisiert werden
+  ungenau?: boolean;
 }
 
 export interface Kunde {

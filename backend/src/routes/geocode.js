@@ -57,6 +57,7 @@ router.post('/delivery/:id', auth, requireRole('administrator', 'disponent'), as
 
     delivery.kunde.adresse.lat = coords.lat;
     delivery.kunde.adresse.lng = coords.lng;
+    delivery.kunde.adresse.ungenau = coords.ungenau || false;
     await delivery.save();
 
     res.json({ ...coords, deliveryId: delivery._id });

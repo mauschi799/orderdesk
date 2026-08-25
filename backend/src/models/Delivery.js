@@ -15,7 +15,10 @@ const addressSchema = new mongoose.Schema({
   ort: String,
   land: { type: String, default: 'DE' },
   lat: Number,
-  lng: Number
+  lng: Number,
+  // true = Straße konnte nicht gefunden werden, lat/lng sind nur der grobe
+  // Ortsmittelpunkt (z.B. bei OSM-Datenlücken in kleinen Orten)
+  ungenau: { type: Boolean, default: false }
 }, { _id: false });
 
 const deliverySchema = new mongoose.Schema({
