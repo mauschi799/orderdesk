@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ScrollText, Filter } from 'lucide-react';
-import { auditApi } from '../api';
+import { auditApi, warehousesApi } from '../api';
 import { AuditLog } from '../types';
 import { PageHeader, Card, StatusBadge } from '../components/ui';
-import { AKTION_LABELS, STATUS_LABELS, LAGER_LABELS, formatDateTime, cn } from '../utils';
+import { AKTION_LABELS, STATUS_LABELS, lagerLabels, formatDateTime, cn } from '../utils';
+import { Warehouse } from '../types';
 
 const AKTION_OPTIONS = [
   { value: '', label: 'Alle Aktionen' },
@@ -45,6 +46,13 @@ export default function AuditPage() {
     queryFn: () => auditApi.list({ aktion, page, limit: 50 }),
     placeholderData: prev => prev,
   });
+
+  const { data: warehouses } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const lagerLabelMap = lagerLabels(warehouses);
 
   const logs: AuditLog[] = data?.logs || [];
 
@@ -135,9 +143,9 @@ export default function AuditPage() {
                           )}
                           {log.details.vonLager !== undefined && log.details.zuLager !== undefined && (
                             <span className="text-xs text-slate-500">
-                              Lager: {log.details.vonLager ? LAGER_LABELS[log.details.vonLager] : 'Keins'}
+                              Lager: {log.details.vonLager ? (lagerLabelMap[log.details.vonLager] || log.details.vonLager) : 'Keins'}
                               {' → '}
-                              {log.details.zuLager ? LAGER_LABELS[log.details.zuLager] : 'Keins'}
+                              {log.details.zuLager ? (lagerLabelMap[log.details.zuLager] || log.details.zuLager) : 'Keins'}
                             </span>
                           )}
                           {log.details.beschreibung && (

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Package, Filter, X } from 'lucide-react';
-import { deliveriesApi } from '../api';
-import { Delivery } from '../types';
+import { deliveriesApi, warehousesApi } from '../api';
+import { Delivery, Warehouse } from '../types';
 import { PageHeader, Card, StatusBadge, LagerBadge, Button, EmptyState } from '../components/ui';
 import { formatDate, formatWeight, calcGesamtgewicht } from '../utils';
 import { useAuthStore } from '../store/authStore';
@@ -16,13 +16,6 @@ const STATUS_OPTIONS = [
   { value: 'gedruckt', label: 'Gedruckt' },
   { value: 'in_auslieferung', label: 'In Auslieferung' },
   { value: 'abgeschlossen', label: 'Abgeschlossen' },
-];
-
-const LAGER_OPTIONS = [
-  { value: '', label: 'Alle Lager' },
-  { value: 'frei', label: 'Frei' },
-  { value: 'bengel', label: 'Bengel' },
-  { value: 'trier', label: 'Trier' },
 ];
 
 export default function DeliveriesPage() {
@@ -38,6 +31,16 @@ export default function DeliveriesPage() {
     queryFn: () => deliveriesApi.list({ search, status, lager, page, limit: 30 }),
     placeholderData: prev => prev
   });
+
+  const { data: warehouses = [] } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const lagerOptions = [
+    { value: '', label: 'Alle Lager' },
+    ...warehouses.map(w => ({ value: w.code, label: w.name })),
+  ];
 
   const hasFilters = search || status || lager;
 
@@ -85,7 +88,7 @@ export default function DeliveriesPage() {
             onChange={e => { setLager(e.target.value); setPage(1); }}
             className="text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
           >
-            {LAGER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {lagerOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           {hasFilters && (
             <button

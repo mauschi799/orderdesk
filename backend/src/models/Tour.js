@@ -12,7 +12,6 @@ const tourSchema = new mongoose.Schema({
   },
   lager: {
     type: String,
-    enum: ['frei', 'bengel', 'trier', null],
     default: null
   },
   status: {

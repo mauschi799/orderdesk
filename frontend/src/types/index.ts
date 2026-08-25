@@ -51,10 +51,22 @@ export interface Vehicle {
   createdAt: string;
   updatedAt: string;
 }
-export type Depot = 'frei' | 'bengel' | 'trier' | null;
+// Depot-Wert entspricht Warehouse.code - admin-verwaltet, daher kein fester Union-Typ mehr
+export type Depot = string | null;
 export type DeliveryStatus = 'neu' | 'nicht_zugewiesen' | 'zugewiesen' | 'gedruckt' | 'in_auslieferung' | 'abgeschlossen' | 'storniert';
-// Kanban Spalten: Neu | Trier | Bengel | Erledigt  (+ interne Status-Spalten)
-export type KanbanColumn = 'neu' | 'trier' | 'bengel' | 'erledigt' | 'nicht_zugewiesen' | 'zugewiesen' | 'gedruckt' | 'in_auslieferung' | 'abgeschlossen';
+// Kanban Spalten: Neu | <ein Warehouse.code je aktivem Lager> | Erledigt  (+ interne Status-Spalten)
+export type KanbanColumn = string;
+
+export interface Warehouse {
+  _id: string;
+  code: string;
+  name: string;
+  farbe: string;
+  aktiv: boolean;
+  sortierung: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface LagerBerechtigung {
   aktiv: boolean;

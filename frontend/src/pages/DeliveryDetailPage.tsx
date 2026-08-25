@@ -3,20 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Printer, Package, Truck, CheckCircle,
-  Edit, MapPin, Phone, Calendar, Hash, Weight, ArrowUpDown, ArrowUp, ArrowDown
+  Edit, MapPin, Phone, Calendar, Hash, Weight, ArrowUpDown, ArrowUp, ArrowDown, History
 } from 'lucide-react';
-import { deliveriesApi, selectlineApi } from '../api';
-import { Delivery } from '../types';
+import { deliveriesApi, selectlineApi, warehousesApi } from '../api';
+import { Delivery, AuditLog, Warehouse } from '../types';
 import {
   PageHeader, Card, StatusBadge, LagerBadge, Button, Modal
 } from '../components/ui';
 import {
   formatDate, formatDateTime, formatWeight, calcGesamtgewicht, calcNettoGG,
-  STATUS_LABELS, LAGER_LABELS, cn
+  STATUS_LABELS, AKTION_LABELS, cn
 } from '../utils';
 import { useAuthStore } from '../store/authStore';
 
-const LAGER_OPTIONS = ['frei', 'bengel', 'trier'];
 
 export default function DeliveryDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,11 +39,24 @@ export default function DeliveryDetailPage() {
     enabled: !!id
   });
 
+  const { data: history = [] } = useQuery<AuditLog[]>({
+    queryKey: ['delivery-history', id],
+    queryFn: () => deliveriesApi.history(id!),
+    enabled: !!id
+  });
+
+  const { data: warehouses = [] } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(true),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const statusMutation = useMutation({
     mutationFn: ({ status, notiz }: any) =>
       deliveriesApi.changeStatus(id!, status, notiz),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['delivery', id] });
+      queryClient.invalidateQueries({ queryKey: ['delivery-history', id] });
       queryClient.invalidateQueries({ queryKey: ['kanban'] });
       setShowStatusModal(false);
     }
@@ -54,6 +66,7 @@ export default function DeliveryDetailPage() {
     mutationFn: (lager: string | null) => deliveriesApi.changeLager(id!, lager),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['delivery', id] });
+      queryClient.invalidateQueries({ queryKey: ['delivery-history', id] });
       queryClient.invalidateQueries({ queryKey: ['kanban'] });
       setShowLagerModal(false);
     }
@@ -372,6 +385,54 @@ export default function DeliveryDetailPage() {
         </div>
       </div>
 
+      {/* Status & Lager History */}
+      {history.length > 0 && (
+        <div className="px-6 pb-6 max-w-6xl no-print">
+          <Card>
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+                <History className="w-4 h-4 text-orange-500" />
+                Verlauf
+              </h2>
+            </div>
+            <div className="divide-y divide-slate-50">
+              {history.map(entry => {
+                const benutzer = typeof entry.benutzer === 'object' ? entry.benutzer : null;
+                const showLager = entry.details?.vonLager !== undefined
+                  && entry.details?.zuLager !== undefined
+                  && entry.details.vonLager !== entry.details.zuLager;
+                const showStatus = entry.aktion === 'status_geaendert';
+                return (
+                  <div key={entry._id} className="flex items-center gap-3 px-5 py-3 text-sm flex-wrap">
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide w-24 flex-shrink-0">
+                      {AKTION_LABELS[entry.aktion] || entry.aktion}
+                    </span>
+                    {showStatus && (
+                      <>
+                        {entry.details?.vonStatus && <StatusBadge status={entry.details.vonStatus} />}
+                        <span className="text-slate-400">→</span>
+                        <StatusBadge status={entry.details?.zuStatus || ''} />
+                      </>
+                    )}
+                    {showLager && (
+                      <>
+                        <LagerBadge lager={(entry.details?.vonLager as any) || null} />
+                        <span className="text-slate-400">→</span>
+                        <LagerBadge lager={(entry.details?.zuLager as any) || null} />
+                      </>
+                    )}
+                    <span className="text-slate-600">
+                      {entry.benutzerName || benutzer?.name || 'System'}
+                    </span>
+                    <span className="text-xs text-slate-400 sm:ml-auto">{formatDateTime(entry.timestamp)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Status Change Modal */}
       <Modal isOpen={showStatusModal} onClose={() => setShowStatusModal(false)} title="Status ändern">
         <div className="p-6 space-y-4">
@@ -421,7 +482,7 @@ export default function DeliveryDetailPage() {
       <Modal isOpen={showLagerModal} onClose={() => setShowLagerModal(false)} title="Lager zuweisen">
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-2">
-            {[null, ...LAGER_OPTIONS].map(l => (
+            {[null, ...warehouses.map(w => w.code)].map(l => (
               <button
                 key={l || 'none'}
                 onClick={() => setSelectedLager(l || '')}
@@ -432,7 +493,7 @@ export default function DeliveryDetailPage() {
                     : 'border-slate-200 hover:bg-slate-50'
                 )}
               >
-                {l ? LAGER_LABELS[l] : 'Kein Lager'}
+                {l ? (warehouses.find(w => w.code === l)?.name || l) : 'Kein Lager'}
               </button>
             ))}
           </div>

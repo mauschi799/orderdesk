@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { dashboardApi } from '../api';
+import { dashboardApi, warehousesApi } from '../api';
+import { Warehouse } from '../types';
 import { PageHeader, Card } from '../components/ui';
-import { STATUS_LABELS, LAGER_LABELS, AKTION_LABELS, formatDateTime, STATUS_DOT_COLORS } from '../utils';
+import { STATUS_LABELS, lagerLabels, AKTION_LABELS, formatDateTime, STATUS_DOT_COLORS } from '../utils';
 import {
   Package, Truck, CheckCircle, Clock, AlertCircle, TrendingUp, Activity, RefreshCw
 } from 'lucide-react';
@@ -19,6 +20,13 @@ export default function DashboardPage() {
     queryFn: dashboardApi.stats,
     refetchInterval: 30_000,
   });
+
+  const { data: warehouses } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const lagerLabelMap = lagerLabels(warehouses);
 
   if (isError) {
     return (
@@ -109,7 +117,7 @@ export default function DashboardPage() {
               {Object.entries(stats?.nachLager || {}).map(([lager, count]) => (
                 <div key={lager} className="flex items-center justify-between">
                   <span className="text-sm text-slate-600 font-medium">
-                    {LAGER_LABELS[lager] || lager}
+                    {lagerLabelMap[lager] || lager}
                   </span>
                   <div className="flex items-center gap-2">
                     <div className="h-2 bg-orange-100 rounded-full" style={{ width: '80px' }}>

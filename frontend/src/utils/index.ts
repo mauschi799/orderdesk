@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { DeliveryStatus, Depot, KanbanColumn } from '../types';
+import { DeliveryStatus, Depot, KanbanColumn, Warehouse } from '../types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -36,6 +36,9 @@ export const STATUS_DOT_COLORS: Record<string, string> = {
   storniert: 'bg-gray-400',
 };
 
+// Fallback-Werte, bevor die Warehouse-Liste vom Server geladen ist bzw. falls
+// sie aus irgendeinem Grund leer bleibt - danach werden diese Maps zur Laufzeit
+// aus den admin-verwalteten Warehouses aufgebaut (siehe lagerLabels/lagerColors unten).
 export const LAGER_LABELS: Record<string, string> = {
   frei: 'Frei',
   bengel: 'Bengel',
@@ -48,6 +51,37 @@ export const LAGER_COLORS: Record<string, string> = {
   trier: 'bg-sky-50 text-sky-700 border-sky-200',
 };
 
+// Feste Farbthemen, aus denen beim Anlegen eines Lagers gewählt wird. Als
+// Literal-Strings hinterlegt, damit Tailwinds JIT-Scanner die Klassen findet
+// (dynamisches `bg-${farbe}-50` würde nicht erkannt).
+export const LAGER_FARBEN = ['slate', 'sky', 'orange', 'emerald', 'violet', 'rose', 'amber', 'indigo', 'teal', 'pink'] as const;
+
+export const LAGER_FARBE_CLASSES: Record<string, { badge: string; headerBg: string; headerBorder: string; dot: string; swatch: string }> = {
+  slate:   { badge: 'bg-slate-50 text-slate-700 border-slate-200',     headerBg: 'bg-slate-50',   headerBorder: 'border-slate-300', dot: 'bg-slate-400',   swatch: 'bg-slate-400' },
+  sky:     { badge: 'bg-sky-50 text-sky-700 border-sky-200',           headerBg: 'bg-sky-50',     headerBorder: 'border-sky-400',   dot: 'bg-sky-500',     swatch: 'bg-sky-500' },
+  orange:  { badge: 'bg-orange-50 text-orange-700 border-orange-200',  headerBg: 'bg-orange-50',  headerBorder: 'border-orange-400', dot: 'bg-orange-500', swatch: 'bg-orange-500' },
+  emerald: { badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', headerBg: 'bg-emerald-50', headerBorder: 'border-emerald-400', dot: 'bg-emerald-500', swatch: 'bg-emerald-500' },
+  violet:  { badge: 'bg-violet-50 text-violet-700 border-violet-200',  headerBg: 'bg-violet-50',  headerBorder: 'border-violet-400', dot: 'bg-violet-500', swatch: 'bg-violet-500' },
+  rose:    { badge: 'bg-rose-50 text-rose-700 border-rose-200',        headerBg: 'bg-rose-50',    headerBorder: 'border-rose-400',  dot: 'bg-rose-500',   swatch: 'bg-rose-500' },
+  amber:   { badge: 'bg-amber-50 text-amber-700 border-amber-200',     headerBg: 'bg-amber-50',   headerBorder: 'border-amber-400', dot: 'bg-amber-500',  swatch: 'bg-amber-500' },
+  indigo:  { badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',  headerBg: 'bg-indigo-50',  headerBorder: 'border-indigo-400', dot: 'bg-indigo-500', swatch: 'bg-indigo-500' },
+  teal:    { badge: 'bg-teal-50 text-teal-700 border-teal-200',        headerBg: 'bg-teal-50',    headerBorder: 'border-teal-400',  dot: 'bg-teal-500',   swatch: 'bg-teal-500' },
+  pink:    { badge: 'bg-pink-50 text-pink-700 border-pink-200',        headerBg: 'bg-pink-50',    headerBorder: 'border-pink-400',  dot: 'bg-pink-500',   swatch: 'bg-pink-500' },
+};
+
+// Aus der admin-verwalteten Warehouse-Liste aufgebaute Label-/Farb-Maps.
+// Fällt auf die statischen LAGER_LABELS/LAGER_COLORS zurück, solange die
+// Liste noch nicht geladen ist.
+export function lagerLabels(warehouses: Warehouse[] | undefined): Record<string, string> {
+  if (!warehouses || warehouses.length === 0) return LAGER_LABELS;
+  return Object.fromEntries(warehouses.map(w => [w.code, w.name]));
+}
+
+export function lagerColors(warehouses: Warehouse[] | undefined): Record<string, string> {
+  if (!warehouses || warehouses.length === 0) return LAGER_COLORS;
+  return Object.fromEntries(warehouses.map(w => [w.code, (LAGER_FARBE_CLASSES[w.farbe] || LAGER_FARBE_CLASSES.slate).badge]));
+}
+
 export const ROLE_LABELS: Record<string, string> = {
   administrator: 'Administrator',
   disponent: 'Disponent',
@@ -56,9 +90,10 @@ export const ROLE_LABELS: Record<string, string> = {
   filialen: 'Filiale',
 };
 
-// ── Neue Kanban-Spalten: Neu | Trier | Bengel | Erledigt ───────────────────
-// Spalten-ID entspricht der Lagerzuweisung (außer 'neu' und 'erledigt')
-export const KANBAN_COLUMNS: {
+// ── Kanban-Spalten: Neu | <ein Warehouse je aktivem Lager> | Erledigt ──────
+// Spalten-ID entspricht der Lagerzuweisung (außer 'neu' und 'erledigt') und
+// wird aus der admin-verwalteten Warehouse-Liste aufgebaut, statt fest zu sein.
+export interface KanbanColumnDef {
   id: KanbanColumn;
   label: string;
   headerBg: string;
@@ -68,44 +103,42 @@ export const KANBAN_COLUMNS: {
   lager: Depot | null;
   // Which status does dropping here set?
   status: string | null;
-}[] = [
-  {
-    id: 'neu',
-    label: 'Neu',
-    headerBg: 'bg-slate-50',
-    headerBorder: 'border-slate-300',
-    dotColor: 'bg-slate-400',
-    lager: null,
-    status: 'neu',
-  },
-  {
-    id: 'trier',
-    label: 'Trier',
-    headerBg: 'bg-sky-50',
-    headerBorder: 'border-sky-400',
-    dotColor: 'bg-sky-500',
-    lager: 'trier',
-    status: 'zugewiesen',
-  },
-  {
-    id: 'bengel',
-    label: 'Bengel',
-    headerBg: 'bg-orange-50',
-    headerBorder: 'border-orange-400',
-    dotColor: 'bg-orange-500',
-    lager: 'bengel',
-    status: 'zugewiesen',
-  },
-  {
-    id: 'erledigt',
-    label: 'Erledigt',
-    headerBg: 'bg-green-50',
-    headerBorder: 'border-green-400',
-    dotColor: 'bg-green-500',
-    lager: null,
-    status: 'abgeschlossen',
-  },
-];
+}
+
+export function buildKanbanColumns(warehouses: Warehouse[]): KanbanColumnDef[] {
+  return [
+    {
+      id: 'neu',
+      label: 'Neu',
+      headerBg: 'bg-slate-50',
+      headerBorder: 'border-slate-300',
+      dotColor: 'bg-slate-400',
+      lager: null,
+      status: 'neu',
+    },
+    ...warehouses.map((w): KanbanColumnDef => {
+      const c = LAGER_FARBE_CLASSES[w.farbe] || LAGER_FARBE_CLASSES.slate;
+      return {
+        id: w.code,
+        label: w.name,
+        headerBg: c.headerBg,
+        headerBorder: c.headerBorder,
+        dotColor: c.dot,
+        lager: w.code,
+        status: 'zugewiesen',
+      };
+    }),
+    {
+      id: 'erledigt',
+      label: 'Erledigt',
+      headerBg: 'bg-green-50',
+      headerBorder: 'border-green-400',
+      dotColor: 'bg-green-500',
+      lager: null,
+      status: 'abgeschlossen',
+    },
+  ];
+}
 
 export const formatDate = (date: string | Date) => {
   return new Date(date).toLocaleDateString('de-DE', {

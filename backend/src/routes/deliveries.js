@@ -1,6 +1,8 @@
 const express = require('express');
 const { body, query, validationResult } = require('express-validator');
 const Delivery = require('../models/Delivery');
+const AuditLog = require('../models/AuditLog');
+const Warehouse = require('../models/Warehouse');
 const { auth, requireRole } = require('../middleware/auth');
 const { createAuditLog } = require('../services/auditService');
 const { notifyStatusChange, notifyLagerChange } = require('../services/pushService');
@@ -51,30 +53,28 @@ router.get('/', auth, async (req, res) => {
 });
 
 // GET /api/deliveries/kanban - grouped by kanban column
-// New primary columns: neu | trier | bengel | erledigt
+// Primary columns: neu | <ein Warehouse.code je aktivem Lager> | erledigt
 router.get('/kanban', auth, async (req, res) => {
   try {
     // abgeschlossen + storniert are excluded – they live in the Lieferscheine list
-    const deliveries = await Delivery.find({ status: { $nin: ['storniert', 'abgeschlossen'] } })
-      .populate('zugewiesenAn', 'name username')
-      .sort({ kanbanPosition: 1, lieferdatum: 1 });
+    const [deliveries, warehouses] = await Promise.all([
+      Delivery.find({ status: { $nin: ['storniert', 'abgeschlossen'] } })
+        .populate('zugewiesenAn', 'name username')
+        .sort({ kanbanPosition: 1, lieferdatum: 1 }),
+      Warehouse.find({ aktiv: true }).sort({ sortierung: 1, name: 1 })
+    ]);
 
-    const columns = {
-      neu:     [],
-      trier:   [],
-      bengel:  [],
-      erledigt: [],
-    };
+    const lagerCodes = new Set(warehouses.map(w => w.code));
+    const columns = { neu: [], erledigt: [] };
+    warehouses.forEach(w => { columns[w.code] = []; });
 
     deliveries.forEach(d => {
       const col = d.kanbanSpalte;
       // Map legacy columns to new structure
       let target = col;
       if (col === 'nicht_zugewiesen') target = 'neu';
-      else if (col === 'zugewiesen') {
-        target = d.lager === 'trier' ? 'trier' : d.lager === 'bengel' ? 'bengel' : 'neu';
-      } else if (['gedruckt', 'in_auslieferung'].includes(col)) {
-        target = d.lager === 'trier' ? 'trier' : d.lager === 'bengel' ? 'bengel' : 'neu';
+      else if (col === 'zugewiesen' || ['gedruckt', 'in_auslieferung'].includes(col)) {
+        target = lagerCodes.has(d.lager) ? d.lager : 'neu';
       } else if (col === 'abgeschlossen') {
         target = 'erledigt';
       }
@@ -102,6 +102,22 @@ router.get('/:id', auth, async (req, res) => {
 
     if (!delivery) return res.status(404).json({ message: 'Lieferschein nicht gefunden' });
     res.json(delivery);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/deliveries/:id/history - status & lager change history for this Lieferschein
+router.get('/:id/history', auth, async (req, res) => {
+  try {
+    const logs = await AuditLog.find({
+      lieferschein: req.params.id,
+      aktion: { $in: ['status_geaendert', 'lager_zugewiesen', 'kanban_verschoben'] }
+    })
+      .populate('benutzer', 'name username role')
+      .sort({ timestamp: 1 });
+
+    res.json(logs);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -227,8 +243,9 @@ router.patch('/:id/status', auth, async (req, res) => {
 router.patch('/:id/lager', auth, requireRole('administrator', 'disponent'), async (req, res) => {
   try {
     const { lager } = req.body;
-    if (!['frei', 'bengel', 'trier', null].includes(lager)) {
-      return res.status(400).json({ message: 'Ungültiges Lager' });
+    if (lager !== null) {
+      const warehouse = await Warehouse.findOne({ code: lager, aktiv: true });
+      if (!warehouse) return res.status(400).json({ message: 'Ungültiges Lager' });
     }
 
     const delivery = await Delivery.findById(req.params.id);
@@ -293,16 +310,19 @@ router.patch('/:id/print', auth, requireRole('administrator', 'disponent', 'lage
 });
 
 // PATCH /api/deliveries/kanban/move - drag & drop
-// New column semantics: neu | trier | bengel | erledigt
-// Dropping onto trier/bengel also sets lager and status=zugewiesen
+// Column semantics: neu | <Warehouse.code> | erledigt
+// Dropping onto a Warehouse-Spalte also sets lager and status=zugewiesen
 // Dropping onto erledigt sets status=abgeschlossen
 router.patch('/kanban/move', auth, requireRole('administrator', 'disponent'), async (req, res) => {
   try {
     const { deliveryId, spalte, position } = req.body;
 
-    const VALID_SPALTEN = ['neu', 'trier', 'bengel', 'erledigt',
+    const warehouses = await Warehouse.find({ aktiv: true });
+    const lagerCodes = new Set(warehouses.map(w => w.code));
+
+    const FESTE_SPALTEN = ['neu', 'erledigt',
       'nicht_zugewiesen', 'zugewiesen', 'gedruckt', 'in_auslieferung', 'abgeschlossen'];
-    if (!VALID_SPALTEN.includes(spalte)) {
+    if (!lagerCodes.has(spalte) && !FESTE_SPALTEN.includes(spalte)) {
       return res.status(400).json({ message: 'Ungültige Kanban-Spalte' });
     }
 
@@ -317,11 +337,8 @@ router.patch('/kanban/move', auth, requireRole('administrator', 'disponent'), as
     delivery.kanbanPosition = position;
 
     // Column → lager + status mapping
-    if (spalte === 'trier') {
-      delivery.lager  = 'trier';
-      delivery.status = 'zugewiesen';
-    } else if (spalte === 'bengel') {
-      delivery.lager  = 'bengel';
+    if (lagerCodes.has(spalte)) {
+      delivery.lager  = spalte;
       delivery.status = 'zugewiesen';
     } else if (spalte === 'erledigt') {
       delivery.status = 'abgeschlossen';

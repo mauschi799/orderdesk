@@ -14,9 +14,9 @@ import {
   ArrowLeft, Save, Truck, UserCheck, Package, X, GripVertical,
   AlertTriangle, ShieldCheck, ShieldOff, Weight, Users, Car,
 } from 'lucide-react';
-import { vehicleApi, driverApi, deliveriesApi, toursApi } from '../api';
-import { Driver, Vehicle, Delivery, Tour } from '../types';
-import { LAGER_LABELS, calcNettoGG, calcGesamtgewicht } from '../utils';
+import { vehicleApi, driverApi, deliveriesApi, toursApi, warehousesApi } from '../api';
+import { Driver, Vehicle, Delivery, Tour, Warehouse } from '../types';
+import { calcNettoGG, calcGesamtgewicht } from '../utils';
 
 // ─── Weight helpers ──────────────────────────────────────────────────────────
 
@@ -449,6 +449,12 @@ export default function TourBuilderPage() {
     queryFn: () => vehicleApi.list({ aktiv: true }),
   });
 
+  const { data: warehouses = [] } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(true),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: deliveriesResp } = useQuery({
     queryKey: ['deliveries-builder'],
     queryFn: () => deliveriesApi.list({ limit: 300 }),
@@ -709,7 +715,7 @@ export default function TourBuilderPage() {
                   <label className="block text-xs font-semibold text-gray-500 mb-1">Lager</label>
                   <select className={inputCls} value={lager} onChange={e => setLager(e.target.value)}>
                     <option value="">Kein Lager</option>
-                    {['frei', 'bengel', 'trier'].map(l => <option key={l} value={l}>{LAGER_LABELS[l] || l}</option>)}
+                    {warehouses.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
                   </select>
                 </div>
                 <div>

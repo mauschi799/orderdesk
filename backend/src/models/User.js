@@ -43,7 +43,6 @@ const userSchema = new mongoose.Schema({
   },
   depot: {
     type: String,
-    enum: ['frei', 'bengel', 'trier', null],
     default: null
   },
   isActive: {

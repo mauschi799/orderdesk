@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Flame, LayoutDashboard, Kanban, FileText, Download, Users, ScrollText, Settings, LogOut, MapPin, Truck, RefreshCw, Paintbrush, ClipboardList, BarChart3, Settings2, Terminal, Car, UserCheck, Menu, X } from 'lucide-react';
+import { Flame, LayoutDashboard, Kanban, FileText, Download, Users, ScrollText, Settings, LogOut, MapPin, Truck, RefreshCw, Paintbrush, ClipboardList, BarChart3, Settings2, Terminal, Car, UserCheck, Menu, X, Warehouse } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useBrandStore } from '../../store/brandStore';
 import { authApi } from '../../api';
@@ -56,6 +56,7 @@ export default function Layout() {
         ...(hasRole('administrator') ? [{ to: '/whitelabel', label: 'Whitelabel', icon: Paintbrush }] : []),
         ...(hasRole('administrator') ? [{ to: '/fahrzeuge', label: 'Fahrzeuge', icon: Car }] : []),
         ...(hasRole('administrator') ? [{ to: '/fahrer', label: 'Fahrer', icon: UserCheck }] : []),
+        ...(hasRole('administrator') ? [{ to: '/lager/verwaltung', label: 'Läger verwalten', icon: Warehouse }] : []),
         ...(hasRole('administrator') ? [{ to: '/api-tester', label: 'API Tester', icon: Terminal }] : []),
         { to: '/einstellungen', label: 'Einstellungen', icon: Settings },
       ]

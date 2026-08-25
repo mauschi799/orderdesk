@@ -56,17 +56,17 @@ const deliverySchema = new mongoose.Schema({
     default: 'neu'
   },
 
-  // Lagerzuweisung
+  // Lagerzuweisung - Wert entspricht Warehouse.code (dynamisch admin-verwaltet,
+  // daher kein enum mehr; Gültigkeit wird in den Routen gegen aktive Warehouses geprüft)
   lager: {
     type: String,
-    enum: ['frei', 'bengel', 'trier', null],
     default: null
   },
 
-  // Kanban-Board Spalte (kann von Status abweichen für Drag&Drop)
+  // Kanban-Board Spalte (kann von Status abweichen für Drag&Drop) - entspricht
+  // entweder einem Warehouse.code oder einer der festen Spalten neu/erledigt/Status-Werten
   kanbanSpalte: {
     type: String,
-    enum: ['neu', 'trier', 'bengel', 'erledigt', 'nicht_zugewiesen', 'zugewiesen', 'gedruckt', 'in_auslieferung', 'abgeschlossen'],
     default: 'neu'
   },
 

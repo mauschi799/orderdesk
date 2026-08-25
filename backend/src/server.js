@@ -18,12 +18,14 @@ const geocodeRoutes   = require('./routes/geocode');
 const cronRoutes      = require('./routes/cron');
 const brandRoutes     = require('./routes/brand');
 const lagerRoutes     = require('./routes/lager');
+const warehouseRoutes = require('./routes/warehouses');
 const debugRoutes     = process.env.NODE_ENV !== 'production' ? require('./routes/debug') : null;
 const vehicleRoutes   = require('./routes/vehicles');
 const driverRoutes    = require('./routes/drivers');
 const adminRoutes     = require('./routes/admin');
 
 const { initCronFromDB } = require('./services/cronService');
+const { ensureDefaultWarehouses } = require('./services/warehouseService');
 
 const app = express();
 
@@ -50,6 +52,7 @@ app.use('/api/geocode',    geocodeRoutes);
 app.use('/api/cron',       cronRoutes);
 app.use('/api/brand',      brandRoutes);
 app.use('/api/lager',      lagerRoutes);
+app.use('/api/warehouses', warehouseRoutes);
 if (debugRoutes) app.use('/api/debug', debugRoutes);
 app.use('/api/fahrzeuge',  vehicleRoutes);
 app.use('/api/fahrer',    driverRoutes);
@@ -67,6 +70,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/orderdesk
   .then(async () => {
     console.log('✅ MongoDB verbunden');
     app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
+    await ensureDefaultWarehouses();
     await initCronFromDB();
   })
   .catch(err => { console.error('❌ MongoDB:', err.message); process.exit(1); });

@@ -8,9 +8,9 @@ import {
 import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Printer, GripVertical } from 'lucide-react';
-import { deliveriesApi } from '../../api';
-import { Delivery } from '../../types';
-import { KANBAN_COLUMNS, formatDate, formatWeight, calcGesamtgewicht, calcNettoGG, cn } from '../../utils';
+import { deliveriesApi, warehousesApi } from '../../api';
+import { Delivery, Warehouse } from '../../types';
+import { buildKanbanColumns, KanbanColumnDef, formatDate, formatWeight, calcGesamtgewicht, calcNettoGG, cn } from '../../utils';
 import { StatusBadge } from '../ui';
 import { useAuthStore } from '../../store/authStore';
 import { useNavigate } from 'react-router-dom';
@@ -92,7 +92,7 @@ function SortableCard({ delivery }: { delivery: Delivery }) {
 
 function KanbanColumn({
   col, deliveries, isOver,
-}: { col: typeof KANBAN_COLUMNS[number]; deliveries: Delivery[]; isOver: boolean }) {
+}: { col: KanbanColumnDef; deliveries: Delivery[]; isOver: boolean }) {
   const { setNodeRef } = useDroppable({ id: col.id });
   return (
     <div className="flex flex-col flex-shrink-0 w-[270px] 2xl:w-[480px]">
@@ -148,6 +148,12 @@ export default function KanbanBoard() {
     refetchInterval: 30_000,
   });
 
+  const { data: warehouses = [] } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(true),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const moveMutation = useMutation({
     mutationFn: ({ deliveryId, spalte, position }: { deliveryId: string; spalte: string; position: number }) =>
       deliveriesApi.kanbanMove(deliveryId, spalte, position),
@@ -158,7 +164,8 @@ export default function KanbanBoard() {
   });
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-  const columns: Record<string, Delivery[]> = kanbanData || { neu: [], trier: [], bengel: [], erledigt: [] };
+  const kanbanColumns = buildKanbanColumns(warehouses);
+  const columns: Record<string, Delivery[]> = kanbanData || {};
 
   const findColumn = useCallback((id: string): string | null => {
     for (const [col, items] of Object.entries(columns)) {
@@ -172,7 +179,7 @@ export default function KanbanBoard() {
     : null;
 
   const resolveColumn = (id: string): string | null => {
-    if (KANBAN_COLUMNS.some(c => c.id === id)) return id;
+    if (kanbanColumns.some(c => c.id === id)) return id;
     return findColumn(id);
   };
 
@@ -199,7 +206,7 @@ export default function KanbanBoard() {
     );
   }
 
-  const visibleColumns = KANBAN_COLUMNS;
+  const visibleColumns = kanbanColumns;
 
   return (
     <div className="flex flex-col h-full">

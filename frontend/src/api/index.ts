@@ -53,6 +53,8 @@ export const deliveriesApi = {
     api.patch(`/deliveries/${id}/print`, {}).then(r => r.data),
   kanbanMove: (deliveryId: string, spalte: string, position: number) =>
     api.patch('/deliveries/kanban/move', { deliveryId, spalte, position }).then(r => r.data),
+  history: (id: string) =>
+    api.get(`/deliveries/${id}/history`).then(r => r.data),
 };
 
 // Users
@@ -67,6 +69,15 @@ export const usersApi = {
 export const auditApi = {
   list: (params?: Record<string, any>) =>
     api.get('/audit', { params }).then(r => r.data),
+};
+
+// Warehouses (Auslieferungsläger)
+export const warehousesApi = {
+  list: (aktiv?: boolean) =>
+    api.get('/warehouses', { params: aktiv ? { aktiv: 'true' } : undefined }).then(r => r.data),
+  create: (data: any) => api.post('/warehouses', data).then(r => r.data),
+  update: (id: string, data: any) => api.put(`/warehouses/${id}`, data).then(r => r.data),
+  delete: (id: string) => api.delete(`/warehouses/${id}`),
 };
 
 // Dashboard

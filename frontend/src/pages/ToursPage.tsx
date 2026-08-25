@@ -15,10 +15,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import api from '../api';
-import { deliveriesApi } from '../api';
-import { Delivery, Tour, TourDeliveryItem } from '../types';
+import { deliveriesApi, warehousesApi } from '../api';
+import { Delivery, Tour, TourDeliveryItem, Warehouse } from '../types';
 import { PageHeader, Card, Button, Modal, StatusBadge } from '../components/ui';
-import { formatDate, LAGER_LABELS, cn } from '../utils';
+import { formatDate, lagerLabels, cn } from '../utils';
 import { useAuthStore } from '../store/authStore';
 
 const TOUR_STATUS_COLORS: Record<string, string> = {
@@ -162,6 +162,13 @@ export default function ToursPage() {
     queryFn: () => deliveriesApi.list({ status: 'zugewiesen', limit: 100 }),
     enabled: showDeliveryPicker,
   });
+
+  const { data: warehouses = [] } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(true),
+    staleTime: 5 * 60 * 1000,
+  });
+  const lagerLabelMap = lagerLabels(warehouses);
 
   const [createError, setCreateError] = useState('');
 
@@ -314,7 +321,7 @@ export default function ToursPage() {
                       {TOUR_STATUS_LABELS[tour.status]}
                     </span>
                     {tour.lager && (
-                      <span className="text-xs text-slate-500">{LAGER_LABELS[tour.lager]}</span>
+                      <span className="text-xs text-slate-500">{lagerLabelMap[tour.lager] || tour.lager}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -495,8 +502,8 @@ export default function ToursPage() {
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
               >
                 <option value="">Kein Lager</option>
-                {['frei', 'bengel', 'trier'].map(l => (
-                  <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                {warehouses.map(w => (
+                  <option key={w.code} value={w.code}>{w.name}</option>
                 ))}
               </select>
             </div>

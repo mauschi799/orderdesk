@@ -19,6 +19,7 @@ import WhitelabelPage from './pages/WhitelabelPage';
 import LagerMeldenPage from './pages/LagerMeldenPage';
 import LagerUebersichtPage from './pages/LagerUebersichtPage';
 import LagerProduktverwaltungPage from './pages/LagerProduktverwaltungPage';
+import LagerVerwaltungPage from './pages/LagerVerwaltungPage';
 import ApiTesterPage from './pages/ApiTesterPage';
 import FahrzeugePage from './pages/FahrzeugePage';
 import FahrerPage from './pages/FahrerPage';
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="lager/melden" element={<PrivateRoute><LagerMeldenPage /></PrivateRoute>} />
           <Route path="lager/uebersicht" element={<LageristRoute><LagerUebersichtPage /></LageristRoute>} />
           <Route path="lager/produkte" element={<AdminRoute><LagerProduktverwaltungPage /></AdminRoute>} />
+          <Route path="lager/verwaltung" element={<AdminRoute><LagerVerwaltungPage /></AdminRoute>} />
           <Route path="api-tester" element={<AdminRoute><ApiTesterPage /></AdminRoute>} />
           <Route path="fahrzeuge" element={<AdminRoute><FahrzeugePage /></AdminRoute>} />
           <Route path="fahrer" element={<AdminRoute><FahrerPage /></AdminRoute>} />

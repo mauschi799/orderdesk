@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Edit, Trash2, User, Shield, Eye, Package, RefreshCw, Store, ClipboardList, BarChart3
 } from 'lucide-react';
-import { usersApi, lagerApi } from '../api';
-import { User as UserType, Role } from '../types';
+import { usersApi, lagerApi, warehousesApi } from '../api';
+import { User as UserType, Role, Warehouse } from '../types';
 import { PageHeader, Card, Button, Modal } from '../components/ui';
 import { ROLE_LABELS, formatDateTime, cn } from '../utils';
 import { useAuthStore } from '../store/authStore';
@@ -15,13 +15,6 @@ const ROLES: { value: Role; label: string; icon: any; color: string }[] = [
   { value: 'lagerist', label: 'Lagerist', icon: User, color: 'text-amber-500' },
   { value: 'viewer', label: 'Betrachter', icon: Eye, color: 'text-slate-500' },
   { value: 'filialen', label: 'Filiale', icon: Store, color: 'text-green-500' },
-];
-
-const DEPOTS = [
-  { value: '', label: 'Kein Lager' },
-  { value: 'frei', label: 'Frei' },
-  { value: 'bengel', label: 'Bengel' },
-  { value: 'trier', label: 'Trier' },
 ];
 
 interface LagerBerechtigungForm {
@@ -76,6 +69,16 @@ export default function UsersPage() {
     queryKey: ['lager-filialen'],
     queryFn: lagerApi.filialen,
   });
+
+  const { data: warehouses = [] } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(true),
+    staleTime: 5 * 60 * 1000,
+  });
+  const depotOptions = [
+    { value: '', label: 'Kein Lager' },
+    ...warehouses.map(w => ({ value: w.code, label: w.name })),
+  ];
 
   const createMutation = useMutation({
     mutationFn: (data: any) => usersApi.create(data),
@@ -428,7 +431,7 @@ export default function UsersPage() {
                 onChange={e => setForm(f => ({ ...f, depot: e.target.value }))}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
               >
-                {DEPOTS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                {depotOptions.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
           )}

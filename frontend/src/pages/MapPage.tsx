@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MapPin, RefreshCw, Filter, Navigation, Route, X, Plus, ChevronDown } from 'lucide-react';
-import api from '../api';
+import api, { warehousesApi } from '../api';
 import { PageHeader, StatusBadge, Modal, Button } from '../components/ui';
 import { formatDate, calcGesamtgewicht, formatWeight, STATUS_LABELS, cn } from '../utils';
-import { Delivery } from '../types';
+import { Delivery, Warehouse } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
@@ -51,6 +51,12 @@ export default function MapPage() {
     datum: new Date().toISOString().split('T')[0],
     fahrer: '',
     fahrzeug: '',
+  });
+
+  const { data: warehouses = [] } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(true),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: deliveries = [], isLoading, refetch } = useQuery<Delivery[]>({
@@ -293,9 +299,9 @@ export default function MapPage() {
               className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
             >
               <option value="">Alle Lager</option>
-              <option value="trier">Trier</option>
-              <option value="bengel">Bengel</option>
-              <option value="frei">Frei</option>
+              {warehouses.map(w => (
+                <option key={w.code} value={w.code}>{w.name}</option>
+              ))}
             </select>
             <button onClick={() => refetch()} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500">
               <RefreshCw className="w-4 h-4" />

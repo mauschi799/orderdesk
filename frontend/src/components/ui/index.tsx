@@ -1,5 +1,7 @@
-import { cn, STATUS_COLORS, STATUS_LABELS, STATUS_DOT_COLORS, LAGER_COLORS, LAGER_LABELS } from '../../utils';
-import { DeliveryStatus, Depot } from '../../types';
+import { useQuery } from '@tanstack/react-query';
+import { warehousesApi } from '../../api';
+import { cn, STATUS_COLORS, STATUS_LABELS, STATUS_DOT_COLORS, lagerLabels, lagerColors } from '../../utils';
+import { DeliveryStatus, Depot, Warehouse } from '../../types';
 
 // Status Badge
 export function StatusBadge({ status }: { status: DeliveryStatus | string }) {
@@ -11,12 +13,21 @@ export function StatusBadge({ status }: { status: DeliveryStatus | string }) {
   );
 }
 
-// Lager Badge
+// Lager Badge - Warehouse-Liste wird über den React-Query-Cache geteilt
+// (gleicher queryKey wie an allen anderen Stellen, die Läger anzeigen), daher
+// hier kein Prop-Drilling nötig und kein zusätzlicher Netzwerk-Request je Badge.
 export function LagerBadge({ lager }: { lager: Depot }) {
+  const { data: warehouses } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list(),
+    staleTime: 5 * 60 * 1000,
+  });
   if (!lager) return <span className="text-slate-400 text-xs">–</span>;
+  const labels = lagerLabels(warehouses);
+  const colors = lagerColors(warehouses);
   return (
-    <span className={cn('status-badge', LAGER_COLORS[lager])}>
-      {LAGER_LABELS[lager]}
+    <span className={cn('status-badge', colors[lager] || 'bg-gray-100 text-gray-600 border-gray-200')}>
+      {labels[lager] || lager}
     </span>
   );
 }
