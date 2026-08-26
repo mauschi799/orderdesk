@@ -9,6 +9,12 @@ const importScheduleSchema = new mongoose.Schema({
   beschreibung: String,
   // Import window: how many days back to look
   tageRueckblick: { type: Number, default: 7 },
+  // Ruhezeit: In diesem Fenster wird der automatische Sync übersprungen
+  // (manueller "Jetzt importieren" ist davon nicht betroffen). Format "HH:mm".
+  // Standard 18:00-07:30 deckt über Mitternacht hinweg ab.
+  ruhezeitAktiv: { type: Boolean, default: true },
+  ruhezeitVon: { type: String, default: '18:00' },
+  ruhezeitBis: { type: String, default: '07:30' },
   // Last run info
   letzterLauf: Date,
   letzterLaufErgebnis: {

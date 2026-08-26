@@ -8,6 +8,31 @@ const sl = require('./selectlineService');
 
 let activeJob = null;
 
+// Prüft, ob "jetzt" (Europe/Berlin) innerhalb der konfigurierten Ruhezeit liegt.
+// Unterstützt Fenster über Mitternacht hinweg (z.B. 18:00-07:30).
+const istRuhezeit = (schedule) => {
+  if (!schedule?.ruhezeitAktiv) return false;
+  const von = schedule.ruhezeitVon || '18:00';
+  const bis = schedule.ruhezeitBis || '07:30';
+
+  const toMinuten = (hhmm) => {
+    const [h, m] = String(hhmm).split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+
+  const jetzt = new Date().toLocaleTimeString('de-DE', {
+    timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  const jetztMin = toMinuten(jetzt);
+  const vonMin = toMinuten(von);
+  const bisMin = toMinuten(bis);
+
+  if (vonMin === bisMin) return false; // leeres Fenster = keine Ruhezeit
+  if (vonMin < bisMin) return jetztMin >= vonMin && jetztMin < bisMin;
+  // Fenster geht über Mitternacht (von > bis), z.B. 18:00-07:30
+  return jetztMin >= vonMin || jetztMin < bisMin;
+};
+
 // Returns { outcome, id }
 const upsertDelivery = async (mapped) => {
   const existing = await Delivery.findOne({
@@ -120,6 +145,10 @@ const startCronJob = (cronExpression, schedule) => {
   if (!cron.validate(cronExpression)) { console.error('Ungültiger Cron-Ausdruck:', cronExpression); return false; }
 
   activeJob = cron.schedule(cronExpression, async () => {
+    if (istRuhezeit(schedule)) {
+      console.log(`[Cron] Ruhezeit (${schedule.ruhezeitVon}–${schedule.ruhezeitBis}) – Sync übersprungen: ${new Date().toISOString()}`);
+      return;
+    }
     console.log(`[Cron] Auto-Import: ${new Date().toISOString()}`);
     const result = await runImport(schedule);
     const historyEntry = { zeitpunkt: new Date(), ergebnis: result };
@@ -150,4 +179,4 @@ const initCronFromDB = async () => {
   } catch (err) { console.error('Cron-Init:', err.message); }
 };
 
-module.exports = { runImport, startCronJob, initCronFromDB, getActiveJob: () => activeJob };
+module.exports = { runImport, startCronJob, initCronFromDB, istRuhezeit, getActiveJob: () => activeJob };

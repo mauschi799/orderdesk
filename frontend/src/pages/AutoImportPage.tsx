@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, Play, Settings, CheckCircle, AlertCircle,
-  RefreshCw, History, ToggleLeft, ToggleRight, Zap
+  RefreshCw, History, ToggleLeft, ToggleRight, Zap, Moon
 } from 'lucide-react';
 import api from '../api';
 import { Card, Button, PageHeader } from '../components/ui';
@@ -13,6 +13,10 @@ interface CronSchedule {
   cronExpression: string;
   beschreibung: string;
   tageRueckblick: number;
+  ruhezeitAktiv: boolean;
+  ruhezeitVon: string;
+  ruhezeitBis: string;
+  ruhezeitJetzt?: boolean;
   letzterLauf?: string;
   letzterLaufErgebnis?: {
     imported: number;
@@ -115,6 +119,12 @@ export default function AutoImportPage() {
                   {schedule?.beschreibung || schedule?.cronExpression || 'Nicht konfiguriert'}
                 </div>
               </div>
+              {schedule?.aktiv && schedule?.ruhezeitJetzt && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-indigo-50 text-indigo-600 border border-indigo-200 px-2.5 py-1 rounded-full">
+                  <Moon className="w-3 h-3" />
+                  Ruhezeit – Sync pausiert
+                </span>
+              )}
             </div>
 
             <button
@@ -321,6 +331,50 @@ export default function AutoImportPage() {
             </div>
             <p className="text-xs text-slate-400">
               Wie viele Tage in die Vergangenheit soll SelectLine beim Import abgefragt werden
+            </p>
+          </div>
+
+          {/* Ruhezeit */}
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Moon className="w-3.5 h-3.5" />
+                Ruhezeit (kein automatischer Sync)
+              </label>
+              <button
+                type="button"
+                onClick={() => updateMutation.mutate({ ruhezeitAktiv: !schedule?.ruhezeitAktiv })}
+                disabled={updateMutation.isPending || isLoading}
+                className={cn(
+                  'w-11 h-6 rounded-full transition-colors relative flex-shrink-0',
+                  schedule?.ruhezeitAktiv ? 'bg-orange-500' : 'bg-slate-200'
+                )}
+              >
+                <span className={cn(
+                  'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all',
+                  schedule?.ruhezeitAktiv ? 'left-6' : 'left-1'
+                )} />
+              </button>
+            </div>
+            {schedule?.ruhezeitAktiv && (
+              <div className="flex items-center gap-3">
+                <input
+                  type="time"
+                  value={schedule?.ruhezeitVon || '18:00'}
+                  onChange={e => updateMutation.mutate({ ruhezeitVon: e.target.value })}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+                <span className="text-slate-400 text-sm">bis</span>
+                <input
+                  type="time"
+                  value={schedule?.ruhezeitBis || '07:30'}
+                  onChange={e => updateMutation.mutate({ ruhezeitBis: e.target.value })}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+              </div>
+            )}
+            <p className="text-xs text-slate-400 mt-1.5">
+              In diesem Zeitfenster wird der automatische Sync übersprungen – manueller Import über "Jetzt importieren" funktioniert immer. Zeitfenster über Mitternacht hinweg (z.B. 18:00–07:30) werden unterstützt.
             </p>
           </div>
         </Card>

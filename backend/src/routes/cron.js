@@ -2,7 +2,9 @@ const express = require('express');
 const cron = require('node-cron');
 const ImportSchedule = require('../models/ImportSchedule');
 const { auth, requireRole } = require('../middleware/auth');
-const { runImport, startCronJob } = require('../services/cronService');
+const { runImport, startCronJob, istRuhezeit } = require('../services/cronService');
+
+const ZEIT_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const router = express.Router();
 
@@ -18,7 +20,7 @@ router.get('/schedule', auth, requireRole('administrator'), async (req, res) => 
         tageRueckblick: 7
       });
     }
-    res.json(schedule);
+    res.json({ ...schedule.toObject(), ruhezeitJetzt: istRuhezeit(schedule) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -27,10 +29,16 @@ router.get('/schedule', auth, requireRole('administrator'), async (req, res) => 
 // PUT /api/cron/schedule - update schedule
 router.put('/schedule', auth, requireRole('administrator'), async (req, res) => {
   try {
-    const { aktiv, cronExpression, tageRueckblick, beschreibung } = req.body;
+    const { aktiv, cronExpression, tageRueckblick, beschreibung, ruhezeitAktiv, ruhezeitVon, ruhezeitBis } = req.body;
 
     if (cronExpression && !cron.validate(cronExpression)) {
       return res.status(400).json({ message: 'Ungültiger Cron-Ausdruck' });
+    }
+    if (ruhezeitVon !== undefined && !ZEIT_REGEX.test(ruhezeitVon)) {
+      return res.status(400).json({ message: 'Ruhezeit-Start muss im Format HH:mm sein' });
+    }
+    if (ruhezeitBis !== undefined && !ZEIT_REGEX.test(ruhezeitBis)) {
+      return res.status(400).json({ message: 'Ruhezeit-Ende muss im Format HH:mm sein' });
     }
 
     let schedule = await ImportSchedule.findOne();
@@ -42,6 +50,9 @@ router.put('/schedule', auth, requireRole('administrator'), async (req, res) => 
     if (aktiv !== undefined) schedule.aktiv = aktiv;
     if (tageRueckblick !== undefined) schedule.tageRueckblick = tageRueckblick;
     if (beschreibung !== undefined) schedule.beschreibung = beschreibung;
+    if (ruhezeitAktiv !== undefined) schedule.ruhezeitAktiv = ruhezeitAktiv;
+    if (ruhezeitVon !== undefined) schedule.ruhezeitVon = ruhezeitVon;
+    if (ruhezeitBis !== undefined) schedule.ruhezeitBis = ruhezeitBis;
 
     await schedule.save();
 
@@ -57,7 +68,7 @@ router.put('/schedule', auth, requireRole('administrator'), async (req, res) => 
       if (job) job.stop();
     }
 
-    res.json(schedule);
+    res.json({ ...schedule.toObject(), ruhezeitJetzt: istRuhezeit(schedule) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
