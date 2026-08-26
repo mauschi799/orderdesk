@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Flame, LayoutDashboard, Kanban, FileText, Download, Users, ScrollText, Settings, LogOut, MapPin, Truck, RefreshCw, Paintbrush, ClipboardList, BarChart3, Settings2, Terminal, Car, UserCheck, Menu, X, Warehouse } from 'lucide-react';
+import { Flame, LayoutDashboard, Kanban, FileText, Download, Users, ScrollText, Settings, LogOut, MapPin, Truck, RefreshCw, Paintbrush, ClipboardList, BarChart3, Settings2, Terminal, Car, UserCheck, Menu, X, Warehouse, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useBrandStore } from '../../store/brandStore';
 import { authApi } from '../../api';
@@ -27,6 +27,12 @@ export default function Layout() {
   const canMelden = hasRole('filialen', 'administrator') || user?.lagerMelden?.aktiv;
   const canLesen  = hasRole('lagerist', 'administrator') || user?.lagerLesen?.aktiv;
 
+  type NavItem = { to: string; label: string; icon: any };
+  // `standalone` = flacher Link ohne eigene Gruppen-Überschrift (z.B. Audit-Log,
+  // API Tester); `collapsible` = Gruppe ist standardmäßig zugeklappt und wird
+  // per Klick auf die Überschrift auf-/zugeklappt.
+  type NavGroup = { label: string; items: NavItem[]; collapsible?: boolean; standalone?: boolean };
+
   const navGroups = [
     !isFilialen && {
       label: 'Disposition',
@@ -47,21 +53,47 @@ export default function Layout() {
       ]
     },
     !isFilialen && {
-      label: 'Verwaltung',
+      label: 'Einstellungen',
+      collapsible: true,
       items: [
         ...(hasRole('administrator','disponent','lagerist') ? [{ to: '/import', label: 'Import', icon: Download }] : []),
         ...(features?.showAutoImport !== false && hasRole('administrator') ? [{ to: '/auto-import', label: 'Auto-Import', icon: RefreshCw }] : []),
-        ...(features?.showAuditLog !== false && hasRole('administrator','disponent') ? [{ to: '/audit', label: 'Audit-Log', icon: ScrollText }] : []),
-        ...(hasRole('administrator') ? [{ to: '/benutzer', label: 'Benutzer', icon: Users }] : []),
         ...(hasRole('administrator') ? [{ to: '/whitelabel', label: 'Whitelabel', icon: Paintbrush }] : []),
-        ...(hasRole('administrator') ? [{ to: '/fahrzeuge', label: 'Fahrzeuge', icon: Car }] : []),
-        ...(hasRole('administrator') ? [{ to: '/fahrer', label: 'Fahrer', icon: UserCheck }] : []),
-        ...(hasRole('administrator') ? [{ to: '/lager/verwaltung', label: 'Läger verwalten', icon: Warehouse }] : []),
-        ...(hasRole('administrator') ? [{ to: '/api-tester', label: 'API Tester', icon: Terminal }] : []),
-        { to: '/einstellungen', label: 'Einstellungen', icon: Settings },
+        { to: '/einstellungen', label: 'Mein Konto', icon: Settings },
       ]
     },
-  ].filter(g => g && g.items.length > 0) as { label: string; items: { to: string; label: string; icon: any }[] }[];
+    !isFilialen && hasRole('administrator') && {
+      label: 'Verwaltung',
+      collapsible: true,
+      items: [
+        { to: '/benutzer', label: 'Benutzer', icon: Users },
+        { to: '/fahrzeuge', label: 'Fahrzeuge', icon: Car },
+        { to: '/fahrer', label: 'Fahrer', icon: UserCheck },
+        { to: '/lager/verwaltung', label: 'Läger verwalten', icon: Warehouse },
+      ]
+    },
+    !isFilialen && hasRole('administrator') && {
+      label: 'API Tester',
+      standalone: true,
+      items: [{ to: '/api-tester', label: 'API Tester', icon: Terminal }]
+    },
+    !isFilialen && {
+      label: 'Audit-Log',
+      standalone: true,
+      items: [
+        ...(features?.showAuditLog !== false && hasRole('administrator','disponent') ? [{ to: '/audit', label: 'Audit-Log', icon: ScrollText }] : []),
+      ]
+    },
+  ].filter(g => g && g.items.length > 0) as NavGroup[];
+
+  // Gruppen, deren aktuelle Seite gerade aktiv ist, sollen beim Laden schon
+  // aufgeklappt sein - sonst verschwindet die eigene Position aus der Sidebar.
+  const isGroupActive = (group: NavGroup) => group.items.some(i => i.to === location.pathname);
+  const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
+  const isGroupOpen = (group: NavGroup) => openOverrides[group.label] ?? isGroupActive(group);
+  const toggleGroup = (label: string, currentlyOpen: boolean) => {
+    setOpenOverrides(prev => ({ ...prev, [label]: !currentlyOpen }));
+  };
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#f8f9fb' }}>
@@ -105,28 +137,45 @@ export default function Layout() {
 
         {/* Nav */}
         <nav className="flex-1 py-3 px-3 overflow-y-auto space-y-4">
-          {navGroups.map(group => (
-            <div key={group.label}>
-              <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.sidebarText + '80' }}>
-                {group.label}
+          {navGroups.map(group => {
+            const open = isGroupOpen(group);
+            return (
+              <div key={group.label}>
+                {group.standalone ? null : group.collapsible ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.label, open)}
+                    className="w-full flex items-center justify-between px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest transition-opacity hover:opacity-80"
+                    style={{ color: colors.sidebarText + '80' }}
+                  >
+                    <span>{group.label}</span>
+                    <ChevronDown className={cn('w-3 h-3 transition-transform', open ? 'rotate-180' : '')} />
+                  </button>
+                ) : (
+                  <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.sidebarText + '80' }}>
+                    {group.label}
+                  </div>
+                )}
+                {(!group.collapsible || open) && (
+                  <div className="space-y-0.5">
+                    {group.items.map(({ to, label, icon: Icon }) => (
+                      <NavLink key={to} to={to} className={({ isActive }) =>
+                        cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+                          isActive ? 'text-white' : 'hover:text-white')
+                      } style={({ isActive }) => ({
+                        background: isActive ? colors.sidebarActive : 'transparent',
+                        color: isActive ? 'white' : colors.sidebarText,
+                        boxShadow: isActive ? `0 4px 12px ${colors.sidebarActive}30` : 'none',
+                      })}>
+                        <Icon className="w-4 h-4 flex-shrink-0" />
+                        <span className="flex-1">{label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="space-y-0.5">
-                {group.items.map(({ to, label, icon: Icon }) => (
-                  <NavLink key={to} to={to} className={({ isActive }) =>
-                    cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
-                      isActive ? 'text-white' : 'hover:text-white')
-                  } style={({ isActive }) => ({
-                    background: isActive ? colors.sidebarActive : 'transparent',
-                    color: isActive ? 'white' : colors.sidebarText,
-                    boxShadow: isActive ? `0 4px 12px ${colors.sidebarActive}30` : 'none',
-                  })}>
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    <span className="flex-1">{label}</span>
-                  </NavLink>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* User */}

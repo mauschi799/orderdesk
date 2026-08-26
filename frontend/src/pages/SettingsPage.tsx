@@ -94,7 +94,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Einstellungen" subtitle="Konto & Sicherheit" />
+      <PageHeader title="Mein Konto" subtitle="Konto & Sicherheit" />
 
       <div className="p-6 space-y-4 max-w-2xl">
         {/* Profile Info */}
