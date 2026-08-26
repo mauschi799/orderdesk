@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapPin, RefreshCw, Filter, Navigation, Route, X, Plus, ChevronDown } from 'lucide-react';
+import { MapPin, RefreshCw, Filter, Navigation, Route, X, Plus, ChevronDown, ExternalLink, Printer, Truck } from 'lucide-react';
 import api, { warehousesApi } from '../api';
 import { PageHeader, StatusBadge, Modal, Button } from '../components/ui';
-import { formatDate, calcGesamtgewicht, formatWeight, STATUS_LABELS, cn } from '../utils';
+import { formatDate, formatDateTime, calcGesamtgewicht, calcNettoGG, formatWeight, STATUS_LABELS, cn } from '../utils';
 import { Delivery, Warehouse } from '../types';
 import { useNavigate } from 'react-router-dom';
 
@@ -39,6 +39,12 @@ export default function MapPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [lagerFilter, setLagerFilter] = useState('');
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+  const [detailExpanded, setDetailExpanded] = useState(false);
+  const [showPanelTourDropdown, setShowPanelTourDropdown] = useState(false);
+  // Wenn aus dem Seitenpanel heraus (statt aus dem Planungsmodus) eine Tour für
+  // genau einen Lieferschein erstellt wird, wird die Ziel-ID hier gehalten -
+  // das Quick-Create-Modal wird dafür mitgenutzt statt dupliziert.
+  const [singleTourTargetId, setSingleTourTargetId] = useState<string | null>(null);
   const [leafletReady, setLeafletReady] = useState(false);
 
   // Plan mode state
@@ -70,7 +76,7 @@ export default function MapPage() {
   const { data: toursData } = useQuery({
     queryKey: ['tours-plannable'],
     queryFn: () => api.get('/tours', { params: { status: 'geplant' } }).then(r => r.data),
-    enabled: planMode,
+    enabled: planMode || !!selectedDelivery,
   });
   const plannableTours: any[] = toursData?.tours || [];
 
@@ -103,12 +109,20 @@ export default function MapPage() {
       setSelectedForTour([]);
       setPlanMode(false);
       setShowQuickCreateModal(false);
+      setSingleTourTargetId(null);
       queryClient.invalidateQueries({ queryKey: ['tours-plannable'] });
     },
   });
 
   // Keep planModeRef in sync
   useEffect(() => { planModeRef.current = planMode; }, [planMode]);
+
+  // Detail-Ansicht & Tour-Dropdown zurücksetzen, sobald ein anderer/kein
+  // Lieferschein mehr ausgewählt ist
+  useEffect(() => {
+    setDetailExpanded(false);
+    setShowPanelTourDropdown(false);
+  }, [selectedDelivery?._id]);
 
   // ── Initialize Leaflet ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -191,16 +205,11 @@ export default function MapPage() {
           ${delivery.kunde.adresse?.strasse ? `<div style="font-size:11px;color:#475569;margin-bottom:6px;">📍 ${delivery.kunde.adresse.strasse}, ${delivery.kunde.adresse.plz} ${delivery.kunde.adresse.ort}</div>` : ''}
           ${ungenau ? `<div style="font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:4px 6px;margin-bottom:8px;">⚠️ Position ungenau – Straße nicht gefunden, nur Ortsmittelpunkt</div>` : ''}
           <div style="font-size:11px;color:#475569;margin-bottom:8px;">📦 ${delivery.positionen.length} Pos · ⚖ ${formatWeight(gkg)}</div>
-          <div style="margin-bottom:8px;">
+          <div>
             <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:500;background:${color}20;color:${color};border:1px solid ${color}50;">
               ● ${STATUS_LABELS[delivery.status] || delivery.status}
             </span>
           </div>
-          <a href="/lieferscheine/${delivery._id}"
-            onclick="event.preventDefault();window.__orderdeskNavigate('${delivery._id}');"
-            style="display:block;text-align:center;padding:5px 12px;background:#f48a1a;color:white;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;">
-            Öffnen →
-          </a>
         </div>
       `, { maxWidth: 240 });
 
@@ -270,14 +279,15 @@ export default function MapPage() {
     run();
   }, [deliveries]);
 
-  useEffect(() => {
-    (window as any).__orderdeskNavigate = (id: string) => navigate(`/lieferscheine/${id}`);
-    return () => { delete (window as any).__orderdeskNavigate; };
-  }, [navigate]);
 
   const withCoords = (deliveries as Delivery[]).filter(d => d.kunde?.adresse?.lat != null);
   const withoutCoords = (deliveries as Delivery[]).filter(d => d.kunde?.adresse?.lat == null);
   const selectedDeliveryObjects = (deliveries as Delivery[]).filter(d => selectedForTour.includes(d._id));
+  // Ziel für das Quick-Create-Modal: entweder die Mehrfachauswahl aus dem
+  // Planungsmodus, oder - wenn aus dem Detail-Panel heraus geöffnet - genau
+  // ein einzelner Lieferschein.
+  const quickCreateTargetIds = singleTourTargetId ? [singleTourTargetId] : selectedForTour;
+  const quickCreateTargetObjects = (deliveries as Delivery[]).filter(d => quickCreateTargetIds.includes(d._id));
 
   return (
     <div className="flex flex-col h-full">
@@ -387,6 +397,7 @@ export default function MapPage() {
                 <button
                   onClick={() => {
                     setShowTourDropdown(false);
+                    setSingleTourTargetId(null);
                     setShowQuickCreateModal(true);
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-lg font-medium transition-colors"
@@ -476,25 +487,159 @@ export default function MapPage() {
             <>
               {/* Normal mode: delivery detail */}
               {selectedDelivery && (
-                <div className="p-4 border-b border-slate-100 bg-orange-50 animate-fade-in">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="font-mono text-xs text-orange-600">{selectedDelivery.lieferscheinNr}</div>
-                      <div className="font-semibold text-slate-800 text-sm">{selectedDelivery.kunde.name}</div>
+                <div className="border-b border-slate-100 bg-orange-50 animate-fade-in max-h-[75vh] overflow-y-auto">
+                  <div className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <div className="font-mono text-xs text-orange-600">{selectedDelivery.lieferscheinNr}</div>
+                        <div className="font-semibold text-slate-800 text-sm">{selectedDelivery.kunde.name}</div>
+                      </div>
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        <button
+                          onClick={() => navigate(`/lieferscheine/${selectedDelivery._id}`)}
+                          className="text-slate-400 hover:text-orange-500 p-1"
+                          title="Im Lieferschein-Editor öffnen"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setSelectedDelivery(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none px-1">✕</button>
+                      </div>
                     </div>
-                    <button onClick={() => setSelectedDelivery(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+                    <StatusBadge status={selectedDelivery.status} />
+                    <div className="mt-2 text-xs text-slate-500">
+                      {selectedDelivery.kunde.adresse?.strasse && <div>{selectedDelivery.kunde.adresse.strasse}</div>}
+                      <div>{selectedDelivery.kunde.adresse?.plz} {selectedDelivery.kunde.adresse?.ort}</div>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500">
+                      📦 {selectedDelivery.positionen.length} Pos · ⚖ {formatWeight(calcGesamtgewicht(selectedDelivery.positionen))}
+                    </div>
+
+                    <button
+                      onClick={() => setDetailExpanded(e => !e)}
+                      className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs bg-orange-500 text-white py-1.5 rounded-lg font-medium hover:bg-orange-600 transition-colors"
+                    >
+                      {detailExpanded ? 'Details ausblenden' : 'Details anzeigen'}
+                      <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', detailExpanded ? 'rotate-180' : '')} />
+                    </button>
+
+                    {detailExpanded && (
+                      <div className="mt-3 space-y-3 animate-fade-in">
+                        {/* Positionen */}
+                        <div className="bg-white rounded-lg border border-orange-100 overflow-hidden">
+                          <div className="divide-y divide-slate-50">
+                            {selectedDelivery.positionen.map((pos, i) => (
+                              <div key={i} className="px-3 py-2 text-xs">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-medium text-slate-700 truncate">{pos.beschreibung}</span>
+                                  <span className="font-mono text-slate-500 flex-shrink-0">{pos.menge} {pos.einheit}</span>
+                                </div>
+                                {pos.artikelnummer && (
+                                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">{pos.artikelnummer}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="px-3 py-2 bg-slate-50 flex items-center justify-between text-xs font-semibold">
+                            <span className="text-slate-600">Gesamtgewicht</span>
+                            <span className="text-orange-600">{formatWeight(calcGesamtgewicht(selectedDelivery.positionen))}</span>
+                          </div>
+                          {calcNettoGG(selectedDelivery.positionen) > 0 && (
+                            <div className="px-3 pb-2 flex items-center justify-between text-xs">
+                              <span className="text-slate-500">Netto GG</span>
+                              <span className="text-emerald-600 font-semibold">{formatWeight(calcNettoGG(selectedDelivery.positionen))}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Weitere Infos */}
+                        <div className="bg-white rounded-lg border border-orange-100 p-3 space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">Lieferdatum</span>
+                            <span className="font-medium text-slate-700">{formatDate(selectedDelivery.lieferdatum)}</span>
+                          </div>
+                          {selectedDelivery.auftragNr && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">Auftrag-Nr.</span>
+                              <span className="font-mono text-slate-700">{selectedDelivery.auftragNr}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500 flex items-center gap-1"><Printer className="w-3 h-3" /> Druckstatus</span>
+                            <span className="font-medium text-slate-700">
+                              {selectedDelivery.druckStatus?.gedruckt
+                                ? `Gedruckt (${selectedDelivery.druckStatus.druckAnzahl}×)`
+                                : 'Noch nicht gedruckt'}
+                            </span>
+                          </div>
+                          {selectedDelivery.druckStatus?.gedruckt && selectedDelivery.druckStatus?.gedrucktAm && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">Gedruckt am</span>
+                              <span className="font-medium text-slate-700">{formatDateTime(selectedDelivery.druckStatus.gedrucktAm)}</span>
+                            </div>
+                          )}
+                          {selectedDelivery.kunde.telefon && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">Telefon</span>
+                              <span className="font-medium text-slate-700">{selectedDelivery.kunde.telefon}</span>
+                            </div>
+                          )}
+                          {selectedDelivery.notiz && (
+                            <div className="pt-1.5 border-t border-slate-100">
+                              <span className="text-slate-500 block mb-0.5">Notiz</span>
+                              <span className="text-slate-700">{selectedDelivery.notiz}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tour-Zuweisung */}
+                    <div className="mt-3 pt-3 border-t border-orange-100 flex items-center gap-2">
+                      {plannableTours.length > 0 && (
+                        <div className="relative flex-1">
+                          <button
+                            onClick={() => setShowPanelTourDropdown(s => !s)}
+                            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs rounded-lg font-medium transition-colors"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            Zu Tour
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                          {showPanelTourDropdown && (
+                            <div className="absolute bottom-full mb-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-10 max-h-48 overflow-y-auto">
+                              {plannableTours.map((tour: any) => (
+                                <button
+                                  key={tour._id}
+                                  onClick={() => {
+                                    addToTourMutation.mutate({ tourId: tour._id, deliveryIds: [selectedDelivery._id] });
+                                    setShowPanelTourDropdown(false);
+                                  }}
+                                  disabled={addToTourMutation.isPending}
+                                  className="w-full text-left px-3 py-2 hover:bg-orange-50 transition-colors"
+                                >
+                                  <div className="text-xs font-medium text-slate-800">{tour.name}</div>
+                                  <div className="text-[10px] text-slate-400">
+                                    {tour.lieferscheine?.length || 0} Stopps · {new Date(tour.datum).toLocaleDateString('de-DE')}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => {
+                          setSingleTourTargetId(selectedDelivery._id);
+                          setShowPanelTourDropdown(false);
+                          setShowQuickCreateModal(true);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs rounded-lg font-medium transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Neue Tour
+                      </button>
+                    </div>
                   </div>
-                  <StatusBadge status={selectedDelivery.status} />
-                  <div className="mt-2 text-xs text-slate-500">
-                    {selectedDelivery.kunde.adresse?.strasse && <div>{selectedDelivery.kunde.adresse.strasse}</div>}
-                    <div>{selectedDelivery.kunde.adresse?.plz} {selectedDelivery.kunde.adresse?.ort}</div>
-                  </div>
-                  <button
-                    onClick={() => navigate(`/lieferscheine/${selectedDelivery._id}`)}
-                    className="mt-2 w-full text-xs bg-orange-500 text-white py-1.5 rounded-lg font-medium hover:bg-orange-600 transition-colors"
-                  >
-                    Lieferschein öffnen →
-                  </button>
                 </div>
               )}
 
@@ -547,17 +692,17 @@ export default function MapPage() {
       {/* Quick-create tour modal */}
       <Modal
         isOpen={showQuickCreateModal}
-        onClose={() => setShowQuickCreateModal(false)}
+        onClose={() => { setShowQuickCreateModal(false); setSingleTourTargetId(null); }}
         title="Neue Tour aus Auswahl"
       >
         <div className="p-6 space-y-4">
           {/* Selected stops summary */}
           <div className="bg-orange-50 rounded-xl p-3 border border-orange-100">
             <div className="text-xs font-semibold text-orange-700 mb-2">
-              {selectedForTour.length} ausgewählte Stopps
+              {quickCreateTargetIds.length} ausgewählte{quickCreateTargetIds.length === 1 ? 'r' : ''} Stopp{quickCreateTargetIds.length !== 1 ? 's' : ''}
             </div>
             <div className="space-y-1 max-h-32 overflow-y-auto">
-              {selectedDeliveryObjects.map((d, i) => (
+              {quickCreateTargetObjects.map((d, i) => (
                 <div key={d._id} className="flex items-center gap-2 text-xs text-orange-800">
                   <span className="font-bold">{i + 1}.</span>
                   <span className="font-medium">{d.kunde.name}</span>
@@ -609,7 +754,7 @@ export default function MapPage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={() => setShowQuickCreateModal(false)}>Abbrechen</Button>
+            <Button variant="ghost" onClick={() => { setShowQuickCreateModal(false); setSingleTourTargetId(null); }}>Abbrechen</Button>
             <Button
               loading={createTourMutation.isPending}
               disabled={!quickForm.name || !quickForm.datum}
@@ -618,7 +763,7 @@ export default function MapPage() {
                 datum: quickForm.datum,
                 fahrer: quickForm.fahrer,
                 fahrzeug: quickForm.fahrzeug,
-                lieferscheinIds: selectedForTour,
+                lieferscheinIds: quickCreateTargetIds,
               })}
             >
               Tour erstellen

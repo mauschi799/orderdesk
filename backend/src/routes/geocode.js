@@ -25,7 +25,7 @@ router.get('/deliveries', auth, async (req, res) => {
     }
 
     const deliveries = await Delivery.find(filter)
-      .select('lieferscheinNr kunde status lager lieferdatum positionen kanbanSpalte druckStatus')
+      .select('lieferscheinNr auftragNr notiz kunde status lager lieferdatum positionen kanbanSpalte druckStatus')
       .limit(200);
 
     res.json(deliveries);
