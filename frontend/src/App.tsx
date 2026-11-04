@@ -15,6 +15,7 @@ import SettingsPage from './pages/SettingsPage';
 import MapPage from './pages/MapPage';
 import ToursPage from './pages/ToursPage';
 import AutoImportPage from './pages/AutoImportPage';
+import UpdatePage from './pages/UpdatePage';
 import WhitelabelPage from './pages/WhitelabelPage';
 import LagerMeldenPage from './pages/LagerMeldenPage';
 import LagerUebersichtPage from './pages/LagerUebersichtPage';
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="fahrzeuge" element={<AdminRoute><FahrzeugePage /></AdminRoute>} />
           <Route path="fahrer" element={<AdminRoute><FahrerPage /></AdminRoute>} />
           <Route path="benutzer" element={<AdminRoute><UsersPage /></AdminRoute>} />
+          <Route path="update" element={<AdminRoute><UpdatePage /></AdminRoute>} />
           <Route path="whitelabel" element={<AdminRoute><WhitelabelPage /></AdminRoute>} />
           <Route path="einstellungen" element={<SettingsPage />} />
         </Route>

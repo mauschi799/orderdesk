@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Flame, LayoutDashboard, Kanban, FileText, Download, Users, ScrollText, Settings, LogOut, MapPin, Truck, RefreshCw, Paintbrush, ClipboardList, BarChart3, Settings2, Terminal, Car, UserCheck, Menu, X, Warehouse, ChevronDown } from 'lucide-react';
+import { Flame, LayoutDashboard, Kanban, FileText, Download, Users, ScrollText, Settings, LogOut, MapPin, Truck, RefreshCw, Paintbrush, ClipboardList, BarChart3, Settings2, Terminal, Car, UserCheck, Menu, X, Warehouse, ChevronDown, ArrowUpCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useBrandStore } from '../../store/brandStore';
 import { authApi } from '../../api';
@@ -59,6 +59,7 @@ export default function Layout() {
         ...(hasRole('administrator','disponent','lagerist') ? [{ to: '/import', label: 'Import', icon: Download }] : []),
         ...(features?.showAutoImport !== false && hasRole('administrator') ? [{ to: '/auto-import', label: 'Auto-Import', icon: RefreshCw }] : []),
         ...(hasRole('administrator') ? [{ to: '/whitelabel', label: 'Whitelabel', icon: Paintbrush }] : []),
+        ...(hasRole('administrator') ? [{ to: '/update', label: 'Update', icon: ArrowUpCircle }] : []),
         { to: '/einstellungen', label: 'Mein Konto', icon: Settings },
       ]
     },
