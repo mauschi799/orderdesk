@@ -18,7 +18,7 @@ const auditSchema = new mongoose.Schema({
       'import_gestartet', 'import_abgeschlossen',
       'import_manuell', 'import_auto',
       'benutzer_erstellt', 'benutzer_geaendert', 'benutzer_geloescht',
-      'kanban_verschoben'
+      'kanban_verschoben', 'system_update'
     ]
   },
   lieferschein: {

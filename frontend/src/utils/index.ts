@@ -191,4 +191,5 @@ export const AKTION_LABELS: Record<string, string> = {
   benutzer_geaendert: 'Benutzer geändert',
   benutzer_geloescht: 'Benutzer gelöscht',
   kanban_verschoben: 'Kanban verschoben',
+  system_update: 'System-Update gestartet',
 };

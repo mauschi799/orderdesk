@@ -63,6 +63,7 @@ VAPID_EMAIL=${VAPID_EMAIL:-admin@example.com}
 
 # ── JWT-Secret generieren ─────────────────────────────────────────────────────
 JWT_SECRET=$(openssl rand -hex 32)
+UPDATER_TOKEN=$(openssl rand -hex 24)
 
 # ── .env schreiben ────────────────────────────────────────────────────────────
 cat > .env <<EOF
@@ -86,6 +87,9 @@ SELECTLINE_IGNORE_SSL=${SL_SSL}
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_EMAIL=mailto:${VAPID_EMAIL}
+
+# ── Updater-Container (Version aktualisieren in der App) ──────────────────────
+UPDATER_TOKEN=${UPDATER_TOKEN}
 EOF
 
 echo ""

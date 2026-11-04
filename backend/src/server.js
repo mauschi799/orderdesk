@@ -60,7 +60,7 @@ app.use('/api/fahrer',    driverRoutes);
 app.use('/api/admin',     adminRoutes);
 app.use('/api/version',   versionRoutes);
 
-app.get('/api/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/api/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString(), commit: process.env.GIT_COMMIT || null }));
 app.use((req, res) => res.status(404).json({ message: 'Route nicht gefunden' }));
 app.use((err, req, res, next) => {
   console.error(err.stack);

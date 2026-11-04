@@ -89,6 +89,8 @@ export const dashboardApi = {
 export const versionApi = {
   get: (refresh = false) =>
     api.get('/version', { params: refresh ? { refresh: 1 } : undefined }).then(r => r.data),
+  startUpdate: () => api.post('/version/update').then(r => r.data),
+  updateStatus: () => api.get('/version/update-status').then(r => r.data),
 };
 
 // SelectLine

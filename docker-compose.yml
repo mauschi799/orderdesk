@@ -46,9 +46,28 @@ services:
       - default
       - proxy-net
 
+  # Führt "Version aktualisieren" aus Mein Konto aus (git pull, bauen, Neustart).
+  # Nur intern erreichbar (kein ports:), Zugriff nur mit UPDATER_TOKEN.
+  # ACHTUNG: Der Docker-Socket entspricht Root-Zugriff auf den Host - Token geheim halten.
+  updater:
+    build: ./updater
+    container_name: orderdesk-updater
+    restart: unless-stopped
+    # Bewusst nur die zwei nötigen Werte (nicht die ganze .env mit SelectLine-Zugang etc.)
+    environment:
+      UPDATER_TOKEN: ${UPDATER_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/repo
+      - updater-state:/state
+    depends_on:
+      - backend
+
 volumes:
   mongo-data:
   uploads-data:
+  updater-state:
 
 networks:
   default:
