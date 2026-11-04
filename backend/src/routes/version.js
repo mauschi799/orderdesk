@@ -126,8 +126,10 @@ router.get('/', auth, async (req, res) => {
     ]);
     const data = {
       latest: { ...latest, shortCommit: latest.latestCommit.slice(0, 7), version: latestVersion, changelog },
+      // Commit der laufenden Version unbekannt (Images nicht über ./update.sh gebaut):
+      // dann nur über die Versionsnummer vergleichbar, nicht pauschal "Update verfügbar"
       updateAvailable: latest.status === 'unknown'
-        ? latest.latestCommit !== run.commit
+        ? (latestVersion ? compareSemver(latestVersion, APP_VERSION) > 0 : null)
         : latest.behindBy > 0,
       checkError: null,
     };

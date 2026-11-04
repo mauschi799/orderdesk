@@ -146,6 +146,15 @@ export default function ApplicationPage() {
             </div>
           )}
 
+          {version && !version.commit && (
+            <div className="text-xs bg-slate-50 border border-slate-200 text-slate-600 rounded-lg px-3 py-2 mb-2">
+              Der genaue Stand (Commit, Installationsdatum) ist unbekannt, weil der Server nicht über{' '}
+              <code className="bg-white px-1 rounded border border-slate-200">./update.sh</code> gebaut wurde.
+              Der Abgleich erfolgt deshalb nur über die Versionsnummer. Einmal <code className="bg-white px-1 rounded border border-slate-200">./update.sh</code> auf
+              dem Server ausführen, dann sind Commit, Datum und der Update-Button verfügbar.
+            </div>
+          )}
+
           {version?.checkError ? (
             <div className="text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-lg px-3 py-2">
               Update-Prüfung nicht möglich: {version.checkError}
@@ -244,6 +253,10 @@ export default function ApplicationPage() {
                   (richtet auch den Updater für den Button ein).
                 </div>
               )}
+            </div>
+          ) : version?.updateAvailable === null ? (
+            <div className="text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-lg px-3 py-2">
+              Ob eine neuere Version existiert, lässt sich gerade nicht feststellen (Commit der laufenden Version und aktuelle Versionsnummer auf GitHub unbekannt).
             </div>
           ) : (
             <div className="text-xs text-slate-400">Prüfe auf Updates…</div>

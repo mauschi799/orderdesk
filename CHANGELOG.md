@@ -5,6 +5,11 @@ Jede ausgelieferte Version bekommt einen Eintrag. Die App liest diese Datei unte
 
 Format: `## [Version] - Datum`, darunter optional `### Kategorie` und Stichpunkte mit `- `.
 
+## [1.1.1] - 2026-11-04
+
+### Behoben
+- Application: Wenn der genaue Stand (Commit) der laufenden Version unbekannt ist, wird nicht mehr pauschal „Neuere Version verfügbar" angezeigt, sondern nur anhand der Versionsnummer verglichen. Dazu gibt es einen Hinweis, wie Commit, Installationsdatum und Update-Button über `./update.sh` aktiviert werden.
+
 ## [1.1.0] - 2026-11-04
 
 ### Neu
