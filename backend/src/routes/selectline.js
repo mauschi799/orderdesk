@@ -139,6 +139,7 @@ router.post('/import', auth, requireRole('administrator', 'disponent', 'lagerist
   const importedIds = [];
   try {
     const documents = await sl.getDeliveryNotes({ dateFrom, dateTo });
+    for (const w of documents.warnings || []) results.errors.push({ key: 'Hinweis', error: w });
     for (const doc of documents) {
       const key = doc.Number || doc.DocumentKey || doc.DeliveryDocumentNumber || doc.Id;
       try {

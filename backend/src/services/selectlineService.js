@@ -168,14 +168,41 @@ const testConnection = async () => {
 // SelectLine expects German date format DD.MM.YYYY
 const toSlDate = (iso) => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
 
-// SelectLine Mobile API caps results at ~10 per request and ignores the skip parameter.
-// Workaround: query day by day using Date GE/LE filters so we get up to 10 docs per day
-// across the entire lookback window instead of only the 10 most recent overall.
+// SelectLine Mobile API caps results at ~10 per request (take wird ignoriert, skip ebenso).
+// Workaround 1: Tag für Tag abfragen (Date GE/LE), damit nicht nur die 10 neuesten
+// Dokumente des gesamten Zeitraums kommen.
+// Workaround 2: Liefert ein Tag so viele Belege wie das Limit, werden die weiteren
+// per Schlüssel-Paging nachgeladen (`Number GT <letzte Nummer>`), bis weniger als
+// das Limit zurückkommt. Ohne das fehlten an belegreichen Tagen (z.B. 41 Lieferscheine)
+// alle Belege nach den ersten ~10, ohne dass ein Fehler auftauchte.
+const DAY_PAGE_CAP = 10;       // beobachtetes API-Limit pro Abfrage
+const MAX_PAGES_PER_DAY = 50;  // Sicherung gegen Endlosschleifen
+
+// Merkt sich, welche Schreibweise für `Number GT ...` die API akzeptiert
+// (mit oder ohne Anführungszeichen) - wird beim ersten Treffer festgelegt.
+let _numberGtStyle = null; // 'quoted' | 'plain'
+
+const extractPage = (data) =>
+  Array.isArray(data) ? data : (data?.value || data?.Data || data?.Items || []);
+
+const docId = (doc) => String(doc.Number || doc.Id || doc.DocumentKey || '');
+
+// Größte Belegnummer einer Seite (numerisch, sonst die zuletzt gelieferte)
+const maxNumber = (page) => {
+  const nums = page.map(d => String(d.Number ?? '')).filter(Boolean);
+  if (nums.length === 0) return null;
+  if (nums.every(n => /^\d+$/.test(n))) {
+    return nums.reduce((a, b) => (BigInt(b) > BigInt(a) ? b : a));
+  }
+  return nums[nums.length - 1];
+};
+
 const getDeliveryNotes = async ({ dateFrom, dateTo } = {}) => {
   const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 14 * 86400000);
   const to   = dateTo   ? new Date(dateTo)   : new Date();
 
   const all = [];
+  all.warnings = []; // Hinweise für den Aufrufer (z.B. nicht vollständig ladbarer Tag)
   const seenIds = new Set();
 
   // Iterate day by day from oldest to newest
@@ -184,25 +211,73 @@ const getDeliveryNotes = async ({ dateFrom, dateTo } = {}) => {
   const end = new Date(to);
   end.setHours(23, 59, 59, 999);
 
+  // Fügt unbekannte Dokumente hinzu, gibt die Anzahl neuer zurück
+  const addDocs = (page) => {
+    let added = 0;
+    for (const doc of page) {
+      const id = docId(doc);
+      if (!id || seenIds.has(id)) continue;
+      seenIds.add(id);
+      all.push(doc);
+      added++;
+    }
+    return added;
+  };
+
+  // Lädt die Seite nach `lastNr`. Probiert beide Schreibweisen von `Number GT`,
+  // bis eine neue Belege liefert. Gibt null zurück, wenn Nachladen nicht möglich ist.
+  const fetchNextPage = async (baseFilter, lastNr) => {
+    const styles = _numberGtStyle ? [_numberGtStyle] : ['quoted', 'plain'];
+    for (const style of styles) {
+      const value = style === 'quoted' ? `'${lastNr}'` : lastNr;
+      try {
+        const data = await slGet('/Documents', { filter: `${baseFilter} AND Number GT ${value}`, take: 50 });
+        const page = extractPage(data);
+        if (page.length === 0) return { page, done: true };       // Filter greift, nichts mehr da
+        if (page.some(d => !seenIds.has(docId(d)))) {              // neue Belege => Filter greift
+          _numberGtStyle = style;
+          return { page, done: false };
+        }
+        // nur bereits bekannte Belege => Filter wurde ignoriert, nächste Schreibweise probieren
+      } catch (err) {
+        console.warn(`[SL] Number GT (${style}) nicht nutzbar: ${err.message}`);
+      }
+    }
+    return null;
+  };
+
   while (day <= end) {
     const slDay = toSlDate(day.toISOString().split('T')[0]);
-    const filter = `KindFlag EQ 'L' AND Date GE '${slDay}' AND Date LE '${slDay}'`;
+    const baseFilter = `KindFlag EQ 'L' AND Date GE '${slDay}' AND Date LE '${slDay}'`;
 
     try {
-      const data = await slGet('/Documents', { filter, take: 50 });
-      const page = Array.isArray(data) ? data : (data?.value || data?.Data || data?.Items || []);
+      let page = extractPage(await slGet('/Documents', { filter: baseFilter, take: 50 }));
+      let added = addDocs(page);
 
-      let added = 0;
-      for (const doc of page) {
-        const id = String(doc.Number || doc.Id || doc.DocumentKey || '');
-        if (!id || seenIds.has(id)) continue;
-        seenIds.add(id);
-        all.push(doc);
-        added++;
+      let pages = 1;
+      while (page.length >= DAY_PAGE_CAP && pages < MAX_PAGES_PER_DAY) {
+        const lastNr = maxNumber(page);
+        const next = lastNr ? await fetchNextPage(baseFilter, lastNr) : null;
+        if (!next) {
+          const msg = `${slDay}: ${page.length} Belege gelesen = API-Limit erreicht, weitere konnten nicht nachgeladen werden - Belege dieses Tages evtl. unvollständig (Einzelimport nutzen)`;
+          console.warn(`[SL] ${msg}`);
+          all.warnings.push(msg);
+          break;
+        }
+        if (next.done) break;
+        page = next.page;
+        added += addDocs(page);
+        pages++;
       }
-      if (added > 0) console.log(`[SL] ${slDay}: ${added} Dok (gesamt: ${all.length})`);
+      if (pages >= MAX_PAGES_PER_DAY) {
+        const msg = `${slDay}: Abbruch nach ${MAX_PAGES_PER_DAY} Seiten`;
+        console.warn(`[SL] ${msg}`);
+        all.warnings.push(msg);
+      }
+      if (added > 0) console.log(`[SL] ${slDay}: ${added} Dok in ${pages} Abfrage(n) (gesamt: ${all.length})`);
     } catch (err) {
       console.warn(`[SL] ${slDay}: ${err.message}`);
+      all.warnings.push(`${slDay}: Abruf fehlgeschlagen - ${err.message}`);
     }
 
     day.setDate(day.getDate() + 1);

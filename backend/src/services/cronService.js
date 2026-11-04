@@ -75,6 +75,8 @@ const runImport = async (schedule) => {
 
   try {
     const documents = await sl.getDeliveryNotes({ dateFrom });
+    // Tage, die nicht (vollständig) geladen werden konnten, sichtbar machen statt sie nur zu loggen
+    if (documents.warnings?.length) results.errors.push(...documents.warnings.map(w => `Hinweis: ${w}`));
     if (documents.length > 0) {
       documents.forEach(d => {
         const bp  = d.BusinessPartner || {};
