@@ -5,8 +5,12 @@ const { createAuditLog } = require('../services/auditService');
 
 const router = express.Router();
 
+// Versionsnummer: einzige Quelle ist backend/package.json (wird bei jedem Release erhöht)
+const APP_VERSION = require('../../package.json').version;
+
 const REPO = process.env.GITHUB_REPO || 'mauschi799/orderdesk';
 const BRANCH = 'main';
+const GITHUB_API = (process.env.GITHUB_API_URL || 'https://api.github.com').replace(/\/$/, '');
 const UPDATER_URL = (process.env.UPDATER_URL || 'http://updater:4000').replace(/\/$/, '');
 const CACHE_MS = 5 * 60 * 1000;      // GitHub-API ohne Token: nur 60 Anfragen/Stunde
 const MIN_REFRESH_MS = 30 * 1000;    // "Erneut prüfen" höchstens alle 30s
@@ -21,8 +25,52 @@ const running = () => ({
 const ghGet = async (path) => {
   const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'orderdesk-version-check' };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const res = await axios.get(`https://api.github.com/repos/${REPO}${path}`, { headers, timeout: 6000 });
+  const res = await axios.get(`${GITHUB_API}/repos/${REPO}${path}`, { headers, timeout: 6000 });
   return res.data;
+};
+
+// Versionsnummer, die aktuell auf main steht (null, wenn nicht ermittelbar)
+const fetchLatestVersion = async () => {
+  try {
+    const file = await ghGet(`/contents/backend/package.json?ref=${BRANCH}`);
+    return JSON.parse(Buffer.from(file.content, 'base64').toString('utf8')).version || null;
+  } catch { return null; }
+};
+
+// ── Changelog (CHANGELOG.md im Repo) ─────────────────────────────────────────
+const semverParts = (v) => String(v).split(/[.-]/).slice(0, 3).map(n => parseInt(n, 10) || 0);
+const compareSemver = (a, b) => {
+  const pa = semverParts(a), pb = semverParts(b);
+  for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] > pb[i] ? 1 : -1;
+  return 0;
+};
+
+// Liest "## [1.2.0] - 2026-11-04" + "### Kategorie" + "- Eintrag" aus dem Markdown
+const parseChangelog = (md) => {
+  const versions = [];
+  let cur = null, cat = null;
+  for (const line of String(md).split('\n')) {
+    const v = /^##\s+\[?v?(\d+\.\d+\.\d+)\]?\s*(?:[-–—]\s*(\S+))?/.exec(line);
+    if (v) { cur = { version: v[1], date: v[2] || null, items: [] }; versions.push(cur); cat = null; continue; }
+    if (!cur) continue;
+    const c = /^###\s+(.+)$/.exec(line);
+    if (c) { cat = c[1].trim(); continue; }
+    const item = /^\s*[-*]\s+(.+)$/.exec(line);
+    if (item) cur.items.push({ text: item[1].trim(), kategorie: cat });
+  }
+  return versions;
+};
+
+// Änderungen aller Versionen, die neuer sind als die installierte (neueste zuerst)
+const fetchChangelogSince = async (installedVersion) => {
+  try {
+    const file = await ghGet(`/contents/CHANGELOG.md?ref=${BRANCH}`);
+    const md = Buffer.from(file.content, 'base64').toString('utf8');
+    return parseChangelog(md)
+      .filter(v => compareSemver(v.version, installedVersion) > 0)
+      .sort((a, b) => compareSemver(b.version, a.version))
+      .slice(0, 15);
+  } catch { return []; }
 };
 
 const firstLine = (msg = '') => String(msg).split('\n')[0];
@@ -58,6 +106,7 @@ const checkLatest = async (runningCommit) => {
 router.get('/', auth, async (req, res) => {
   const run = running();
   const base = {
+    version: APP_VERSION,
     commit: run.commit,
     shortCommit: run.commit ? run.commit.slice(0, 7) : null,
     buildDate: run.buildDate,
@@ -72,9 +121,11 @@ router.get('/', auth, async (req, res) => {
   if (usable) return res.json({ ...base, ...cache.data, updaterConfigured, checkedAt: new Date(cache.at).toISOString() });
 
   try {
-    const latest = await checkLatest(run.commit);
+    const [latest, latestVersion, changelog] = await Promise.all([
+      checkLatest(run.commit), fetchLatestVersion(), fetchChangelogSince(APP_VERSION),
+    ]);
     const data = {
-      latest: { ...latest, shortCommit: latest.latestCommit.slice(0, 7) },
+      latest: { ...latest, shortCommit: latest.latestCommit.slice(0, 7), version: latestVersion, changelog },
       updateAvailable: latest.status === 'unknown'
         ? latest.latestCommit !== run.commit
         : latest.behindBy > 0,
@@ -132,3 +183,5 @@ router.post('/update', auth, requireRole('administrator'), async (req, res) => {
 });
 
 module.exports = router;
+module.exports.parseChangelog = parseChangelog;
+module.exports.compareSemver = compareSemver;

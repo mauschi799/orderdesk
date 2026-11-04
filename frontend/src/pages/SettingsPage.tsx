@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Settings, Key, User, Shield, CheckCircle, AlertCircle } from 'lucide-react';
+import { Key, User, Shield, CheckCircle, AlertCircle } from 'lucide-react';
 import { authApi } from '../api';
 import { useAuthStore } from '../store/authStore';
 import PushNotificationPanel from '../components/ui/PushNotificationPanel';
@@ -200,28 +200,6 @@ export default function SettingsPage() {
 
         {/* Push Notifications */}
         {hasRole('administrator') && <PushNotificationPanel />}
-
-        {/* App Info */}
-        <Card className="p-5">
-          <h2 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-            <Settings className="w-4 h-4 text-orange-500" />
-            Applikation
-          </h2>
-          <div className="space-y-2 text-sm text-slate-600">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Version</span>
-              <span className="font-mono">1.0.0</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Auto-Logout</span>
-              <span>60 Minuten</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Datenbank</span>
-              <span className="text-green-600 font-medium">● Verbunden</span>
-            </div>
-          </div>
-        </Card>
       </div>
     </div>
   );
