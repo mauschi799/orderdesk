@@ -85,6 +85,12 @@ export const dashboardApi = {
   stats: () => api.get('/dashboard/stats').then(r => r.data),
 };
 
+// Version / Update-Prüfung
+export const versionApi = {
+  get: (refresh = false) =>
+    api.get('/version', { params: refresh ? { refresh: 1 } : undefined }).then(r => r.data),
+};
+
 // SelectLine
 export const selectlineApi = {
   import: (params: any) => api.post('/selectline/import', params).then(r => r.data),

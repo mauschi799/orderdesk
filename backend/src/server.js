@@ -23,6 +23,7 @@ const debugRoutes     = process.env.NODE_ENV !== 'production' ? require('./route
 const vehicleRoutes   = require('./routes/vehicles');
 const driverRoutes    = require('./routes/drivers');
 const adminRoutes     = require('./routes/admin');
+const versionRoutes   = require('./routes/version');
 
 const { initCronFromDB } = require('./services/cronService');
 const { ensureDefaultWarehouses } = require('./services/warehouseService');
@@ -57,6 +58,7 @@ if (debugRoutes) app.use('/api/debug', debugRoutes);
 app.use('/api/fahrzeuge',  vehicleRoutes);
 app.use('/api/fahrer',    driverRoutes);
 app.use('/api/admin',     adminRoutes);
+app.use('/api/version',   versionRoutes);
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.use((req, res) => res.status(404).json({ message: 'Route nicht gefunden' }));

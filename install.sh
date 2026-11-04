@@ -94,6 +94,8 @@ echo -e "${GREEN}✓ .env erstellt${NC}"
 # ── Docker Build & Start ──────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}── Container werden gebaut ─────────────────────────────────${NC}"
+export GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo unknown)
+export BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 docker compose build --no-cache
 
 echo ""
@@ -169,5 +171,5 @@ echo -e "  ${BOLD}Login:${NC}     ${ADMIN_USER}"
 echo ""
 echo -e "  ${CYAN}Logs:${NC}      docker compose logs -f"
 echo -e "  ${CYAN}Stoppen:${NC}   docker compose down"
-echo -e "  ${CYAN}Update:${NC}    git pull && docker compose up -d --build"
+echo -e "  ${CYAN}Update:${NC}    ./update.sh"
 echo ""
