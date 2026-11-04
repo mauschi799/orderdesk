@@ -102,10 +102,16 @@ const runImport = async (schedule) => {
         // List response already contains all header fields – skip separate detail fetch
         const mapped = await sl.mapDocument(doc);
 
-        // Mark as abgeschlossen if already transferred/invoiced in SelectLine
+        // Mark as abgeschlossen if already transferred/invoiced in SelectLine -
+        // außer bei Barzahlern (Zahlungsart 14): deren Rechnung entsteht direkt nach dem
+        // Lieferschein, abgeschlossen wird erst im Orderdesk nach der Auslieferung.
         if (sl.isTransferred(doc)) {
-          mapped.status = 'abgeschlossen';
-          mapped.kanbanSpalte = 'abgeschlossen';
+          if (sl.isBarzahler(doc)) {
+            console.log(`[Import] ${key}: Barzahler (Zahlungsart ${doc.Payment.PaymentTerm}) - Rechnung wird ignoriert, Lieferschein bleibt offen`);
+          } else {
+            mapped.status = 'abgeschlossen';
+            mapped.kanbanSpalte = 'abgeschlossen';
+          }
         }
         const rawPositions = await sl.getDeliveryPositions(key);
         mapped.positionen = await Promise.all(rawPositions.map(async (pos) => {

@@ -762,11 +762,25 @@ const isTransferred = (doc) => {
   return false;
 };
 
+// Barzahler: Zahlungsart 14 "Barzahlung bei Anlieferung" (SelectLine-Feld Payment.PaymentTerm).
+// Bei ihnen wird die Rechnung sofort nach dem Lieferschein geschrieben - der Beleg gilt in
+// SelectLine dann als erledigt, ist aber noch nicht ausgeliefert. Für sie darf die Rechnung
+// den Lieferschein im Orderdesk nicht automatisch abschließen.
+// Weitere Zahlungsarten bei Bedarf per .env: BARZAHLER_ZAHLUNGSARTEN=14,15
+const BARZAHLER_TERMS = (process.env.BARZAHLER_ZAHLUNGSARTEN || '14')
+  .split(',').map(t => t.trim()).filter(Boolean);
+
+const isBarzahler = (doc) => {
+  const term = doc?.Payment?.PaymentTerm;
+  return term != null && BARZAHLER_TERMS.includes(String(term).trim());
+};
+
 module.exports = {
   ensureToken,
   invalidateToken,
   testConnection,
   isTransferred,
+  isBarzahler,
   getDeliveryNotes,
   getDeliveryNote,
   getDeliveryPositions,
